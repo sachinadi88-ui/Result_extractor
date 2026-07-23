@@ -1,0 +1,6 @@
+{
+  "name": "Student Result Extractor",
+  "description": "Upload student result screenshots to automatically extract USN, Name, and subject-wise grades/results into a structured, searchable table.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
