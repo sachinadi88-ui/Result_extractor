@@ -29,15 +29,15 @@ export const Header: React.FC<HeaderProps> = ({
           
           {/* Brand & Title */}
           <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center text-white shadow-sm shrink-0">
               <GraduationCap className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
                 <h1 className="text-lg font-bold tracking-tight text-slate-900">
-                  Result<span className="text-blue-600">Extract</span> <span className="text-slate-500 font-normal text-sm">AI</span>
+                  Result<span className="text-emerald-600">Extract</span> <span className="text-slate-500 font-normal text-sm">AI</span>
                 </h1>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
                   OCR Engine
                 </span>
               </div>
@@ -57,7 +57,7 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="h-6 w-px bg-slate-200" />
               <div>
                 <span className="text-slate-500 block text-[11px]">Extracted Subjects</span>
-                <span className="text-sm font-bold text-blue-600">{totalSubjects}</span>
+                <span className="text-sm font-bold text-emerald-600">{totalSubjects}</span>
               </div>
               <div className="h-6 w-px bg-slate-200" />
               <div>
@@ -71,7 +71,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={onOpenUpload}
-              className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-sm cursor-pointer"
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-sm cursor-pointer"
             >
               <Upload className="w-4 h-4" />
               <span>Upload Screenshot</span>
@@ -82,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({
               title="Click or press Ctrl+V to extract from clipboard"
               className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-white hover:bg-slate-100 text-slate-700 text-xs sm:text-sm font-medium border border-slate-200 transition-colors cursor-pointer shadow-sm"
             >
-              <Clipboard className="w-4 h-4 text-blue-600" />
+              <Clipboard className="w-4 h-4 text-emerald-600" />
               <span className="hidden sm:inline">Paste Image</span>
             </button>
 

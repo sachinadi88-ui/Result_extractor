@@ -255,7 +255,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
           <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
+            <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100">
               <Upload className="w-5 h-5" />
             </div>
             <div>
@@ -293,11 +293,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({
               onClick={() => fileInputRef.current?.click()}
               className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all ${
                 isDragging
-                  ? 'border-blue-600 bg-blue-50 scale-[1.01]'
-                  : 'border-slate-200 bg-slate-50/60 hover:border-blue-400 hover:bg-slate-50'
+                  ? 'border-emerald-600 bg-emerald-50 scale-[1.01]'
+                  : 'border-slate-200 bg-slate-50/60 hover:border-emerald-400 hover:bg-slate-50'
               }`}
             >
-              <div className="w-16 h-16 mx-auto rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 mb-3 shadow-sm">
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 mb-3 shadow-sm">
                 <FileImage className="w-8 h-8" />
               </div>
               <h3 className="text-base font-bold text-slate-800">
@@ -315,7 +315,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 text-xs">
                 <div className="flex items-center space-x-2">
                   <span className="font-bold text-slate-800">Selected Screenshots ({items.length})</span>
-                  <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium text-[11px] border border-blue-100">
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium text-[11px] border border-emerald-100">
                     {items.filter((i) => i.status === 'success').length} Processed
                   </span>
                 </div>
@@ -323,7 +323,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold transition-colors cursor-pointer"
+                      className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold transition-colors cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Add More</span>
@@ -346,7 +346,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                     key={item.id}
                     className={`relative rounded-xl border overflow-hidden transition-all flex flex-col bg-slate-900 ${
                       item.status === 'processing'
-                        ? 'border-blue-500 ring-2 ring-blue-500/20'
+                        ? 'border-emerald-500 ring-2 ring-emerald-500/20'
                         : item.status === 'success'
                         ? 'border-emerald-500/50 bg-slate-950'
                         : item.status === 'error'
@@ -382,7 +382,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                           </span>
                         )}
                         {item.status === 'processing' && (
-                          <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white shadow-md animate-pulse">
+                          <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-600 text-white shadow-md animate-pulse">
                             <Loader2 className="w-3 h-3 animate-spin" />
                             <span>Extracting...</span>
                           </span>
@@ -419,7 +419,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
                     onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-slate-200 rounded-xl h-40 flex flex-col items-center justify-center p-4 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50/50 transition-all text-slate-400 hover:text-blue-600"
+                    className="border-2 border-dashed border-slate-200 rounded-xl h-40 flex flex-col items-center justify-center p-4 text-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/50 transition-all text-slate-400 hover:text-emerald-600"
                   >
                     <Plus className="w-6 h-6 mb-1" />
                     <span className="text-xs font-semibold">Add More Screenshots</span>
@@ -429,17 +429,17 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
               {/* Progress Bar when extracting */}
               {isProcessing && (
-                <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 space-y-2.5">
-                  <div className="flex items-center justify-between text-xs text-blue-900 font-bold">
+                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100 space-y-2.5">
+                  <div className="flex items-center justify-between text-xs text-emerald-900 font-bold">
                     <div className="flex items-center space-x-2">
-                      <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                      <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
                       <span>Processing screenshot {currentIndex} of {items.filter((i) => i.status === 'pending' || i.status === 'error' || i.status === 'processing').length}...</span>
                     </div>
                     <span>{Math.round((currentIndex / items.length) * 100)}%</span>
                   </div>
-                  <div className="w-full bg-blue-100 rounded-full h-2 overflow-hidden">
+                  <div className="w-full bg-emerald-100 rounded-full h-2 overflow-hidden">
                     <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      className="bg-emerald-600 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${(currentIndex / items.length) * 100}%` }}
                     ></div>
                   </div>
@@ -483,7 +483,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             <button
               onClick={runExtractAi}
               disabled={items.length === 0 || pendingCount === 0 || isProcessing}
-              className="inline-flex items-center space-x-2 px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center space-x-2 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isProcessing ? (
                 <>

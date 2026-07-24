@@ -90,7 +90,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   if (records.length === 0) {
     return (
       <div className="max-w-4xl mx-auto my-12 p-10 bg-white border border-slate-200 rounded-2xl text-center shadow-sm">
-        <div className="w-16 h-16 mx-auto rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 mb-4 shadow-sm">
+        <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 mb-4 shadow-sm">
           <GraduationCap className="w-9 h-9" />
         </div>
         <h2 className="text-xl font-bold text-slate-900 mb-2">No Student Results Extracted Yet</h2>
@@ -100,7 +100,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
         <div className="flex flex-wrap items-center justify-center gap-3">
           <button
             onClick={onOpenUpload}
-            className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm shadow-sm transition-colors cursor-pointer"
+            className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm shadow-sm transition-colors cursor-pointer"
           >
             <Upload className="w-4 h-4" />
             <span>Upload Screenshot</span>
@@ -124,7 +124,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             placeholder="Search USN, Name, Subject..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:bg-white transition-colors"
+            className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-600 focus:bg-white transition-colors"
           />
         </div>
 
@@ -165,7 +165,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               onClick={() => setViewMode('row-summary')}
               title="Standard Single Row Table View"
               className={`p-1.5 rounded-md transition-colors ${
-                viewMode === 'row-summary' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                viewMode === 'row-summary' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
               <LayoutList className="w-4 h-4" />
@@ -174,7 +174,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               onClick={() => setViewMode('matrix')}
               title="Expanded Subject Columns Matrix"
               className={`p-1.5 rounded-md transition-colors ${
-                viewMode === 'matrix' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                viewMode === 'matrix' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
               <TableIcon className="w-4 h-4" />
@@ -183,7 +183,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               onClick={() => setViewMode('cards')}
               title="Card View"
               className={`p-1.5 rounded-md transition-colors ${
-                viewMode === 'cards' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                viewMode === 'cards' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
               <Grid className="w-4 h-4" />
@@ -249,7 +249,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                       {/* USN Column */}
                       <td className="px-4 py-4 align-top font-mono font-bold text-slate-900 whitespace-nowrap">
                         <div className="flex items-center space-x-1.5">
-                          <span className="px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                          <span className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
                             {student.usn || 'N/A'}
                           </span>
                           <button
@@ -414,7 +414,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                       onClick={() => onSelectStudent(student)}
                       className="hover:bg-slate-50 transition-colors cursor-pointer"
                     >
-                      <td className="px-4 py-3 font-mono font-bold text-blue-600">{student.usn}</td>
+                      <td className="px-4 py-3 font-mono font-bold text-emerald-600">{student.usn}</td>
                       <td className="px-4 py-3 font-semibold text-slate-800">{student.name}</td>
                       {Array.from({ length: maxSubjects }).map((_, i) => {
                         const sub = student.subjects?.[i];
@@ -480,15 +480,15 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               <div
                 key={student.id}
                 onClick={() => onSelectStudent(student)}
-                className="bg-white border border-slate-200 rounded-xl p-5 hover:border-blue-300 transition-all cursor-pointer shadow-sm flex flex-col justify-between group hover:shadow-md"
+                className="bg-white border border-slate-200 rounded-xl p-5 hover:border-emerald-300 transition-all cursor-pointer shadow-sm flex flex-col justify-between group hover:shadow-md"
               >
                 <div>
                   <div className="flex items-start justify-between gap-2 mb-3">
                     <div>
-                      <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded border border-blue-200 inline-block mb-1">
+                      <span className="font-mono text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200 inline-block mb-1">
                         {student.usn}
                       </span>
-                      <h3 className="text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                      <h3 className="text-base font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">
                         {student.name}
                       </h3>
                     </div>
