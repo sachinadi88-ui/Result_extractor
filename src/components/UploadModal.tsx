@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, X, FileImage, Sparkles, AlertCircle, Loader2, Plus, Trash2, CheckCircle2, Image as ImageIcon } from 'lucide-react';
 import { StudentRecord } from '../types';
+import { compressAndResizeImage } from '../utils/imageCompress';
 
 export interface ImageUploadItem {
   id: string;
@@ -83,20 +84,16 @@ export const UploadModal: React.FC<UploadModalProps> = ({
     setErrorMessage(null);
     setBatchSummary(null);
 
-    const promises = validFiles.map((file, idx) => {
-      return new Promise<ImageUploadItem>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          resolve({
-            id: `img-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 5)}`,
-            imageBase64: e.target?.result as string,
-            mimeType: file.type || 'image/png',
-            fileName: file.name || `Screenshot ${items.length + idx + 1}`,
-            status: 'pending',
-          });
-        };
-        reader.readAsDataURL(file);
-      });
+    const promises = validFiles.map(async (file, idx) => {
+      // Compress and resize image to prevent Vercel 4.5MB payload limit issues
+      const compressed = await compressAndResizeImage(file, 1800, 0.85);
+      return {
+        id: `img-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 5)}`,
+        imageBase64: compressed.base64,
+        mimeType: compressed.mimeType,
+        fileName: file.name || `Screenshot ${items.length + idx + 1}`,
+        status: 'pending' as const,
+      };
     });
 
     Promise.all(promises).then((newItems) => {
@@ -179,27 +176,21 @@ export const UploadModal: React.FC<UploadModalProps> = ({
         try {
           data = JSON.parse(responseText);
         } catch {
-          let cleanMsg = responseText;
-          if (responseText.includes('leaked') || responseText.includes('API key was reported as leaked')) {
-            cleanMsg = 'Your Gemini API Key has been reported as leaked or compromised. Please update GEMINI_API_KEY in your Vercel Project Settings > Environment Variables.';
-          } else if (responseText.includes('PERMISSION_DENIED') || responseText.includes('403') || responseText.includes('Permission denied')) {
+          let cleanMsg = 'A server error occurred on Vercel. Please verify GEMINI_API_KEY in Vercel > Settings > Environment Variables.';
+          if (responseText.includes('GEMINI_API_KEY') || responseText.includes('api key') || responseText.includes('API_KEY')) {
+            cleanMsg = 'GEMINI_API_KEY is missing or invalid. Please configure GEMINI_API_KEY in your Vercel Project Settings > Environment Variables.';
+          } else if (responseText.includes('leaked') || responseText.includes('API key was reported as leaked')) {
+            cleanMsg = 'Your Gemini API Key has been reported as leaked or compromised. Please update GEMINI_API_KEY in Vercel Project Settings > Environment Variables.';
+          } else if (responseText.includes('PERMISSION_DENIED') || responseText.includes('403')) {
             cleanMsg = 'Permission Denied: Invalid or restricted GEMINI_API_KEY in Vercel Environment Variables.';
           } else if (responseText.includes('413') || responseText.includes('Payload Too Large')) {
-            cleanMsg = 'File payload too large for serverless function limit (max 4.5MB). Please upload a smaller image.';
-          } else if (responseText.includes('ApiError')) {
-            const jsonMatch = responseText.match(/({.*})/s);
-            if (jsonMatch) {
-              try {
-                const parsedErr = JSON.parse(jsonMatch[1]);
-                if (parsedErr.error?.message) {
-                  cleanMsg = parsedErr.error.message;
-                }
-              } catch {
-                // Keep cleanMsg as is
-              }
-            }
+            cleanMsg = 'File payload too large for serverless limit (max 4.5MB). Please upload a smaller screenshot.';
+          } else if (response.status === 500) {
+            cleanMsg = 'Vercel Server Error (500). Please check your Vercel logs and ensure GEMINI_API_KEY is set in Vercel Environment Variables.';
+          } else if (responseText && !responseText.startsWith('<')) {
+            cleanMsg = responseText.substring(0, 180);
           }
-          throw new Error(cleanMsg || `Server error (${response.status})`);
+          throw new Error(cleanMsg);
         }
 
         if (!data.success) {
