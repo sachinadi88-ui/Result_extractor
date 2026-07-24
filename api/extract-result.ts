@@ -48,7 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, "");
 
-    const modelsToTry = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+    const modelsToTry = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-3.6-flash"];
     let lastError: any = null;
     let response: any = null;
 
@@ -137,7 +137,14 @@ Ensure high accuracy in capturing Internal, External, and Total marks columns. I
       } catch (err: any) {
         lastError = err;
         const errStr = err?.message || String(err);
-        if (errStr.includes("not found") || errStr.includes("404") || errStr.includes("INVALID_ARGUMENT")) {
+        if (
+          errStr.includes("not found") ||
+          errStr.includes("404") ||
+          errStr.includes("INVALID_ARGUMENT") ||
+          errStr.includes("PERMISSION_DENIED") ||
+          errStr.includes("403") ||
+          errStr.includes("model")
+        ) {
           continue;
         } else {
           throw err;
