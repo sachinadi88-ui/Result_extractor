@@ -5,15 +5,7 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/api/extract-result",
-      "destination": "/api/extract-result"
-    },
-    {
-      "source": "/api/health",
-      "destination": "/api/health"
-    },
-    {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]
