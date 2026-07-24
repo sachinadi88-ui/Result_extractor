@@ -29,7 +29,7 @@ export async function processExtractResult(imageBase64: string, mimeType: string
   const ai = getGenAI();
 
   const response = await ai.models.generateContent({
-    model: "gemini-3.6-flash",
+    model: "gemini-2.5-flash",
     contents: {
       parts: [
         {

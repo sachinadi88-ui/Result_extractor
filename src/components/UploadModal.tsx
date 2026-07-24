@@ -174,7 +174,33 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           }),
         });
 
-        const data = await response.json();
+        const responseText = await response.text();
+        let data: any;
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          let cleanMsg = responseText;
+          if (responseText.includes('leaked') || responseText.includes('API key was reported as leaked')) {
+            cleanMsg = 'Your Gemini API Key has been reported as leaked or compromised. Please update GEMINI_API_KEY in your Vercel Project Settings > Environment Variables.';
+          } else if (responseText.includes('PERMISSION_DENIED') || responseText.includes('403') || responseText.includes('Permission denied')) {
+            cleanMsg = 'Permission Denied: Invalid or restricted GEMINI_API_KEY in Vercel Environment Variables.';
+          } else if (responseText.includes('413') || responseText.includes('Payload Too Large')) {
+            cleanMsg = 'File payload too large for serverless function limit (max 4.5MB). Please upload a smaller image.';
+          } else if (responseText.includes('ApiError')) {
+            const jsonMatch = responseText.match(/({.*})/s);
+            if (jsonMatch) {
+              try {
+                const parsedErr = JSON.parse(jsonMatch[1]);
+                if (parsedErr.error?.message) {
+                  cleanMsg = parsedErr.error.message;
+                }
+              } catch {
+                // Keep cleanMsg as is
+              }
+            }
+          }
+          throw new Error(cleanMsg || `Server error (${response.status})`);
+        }
 
         if (!data.success) {
           throw new Error(data.error || 'Failed to extract data');
