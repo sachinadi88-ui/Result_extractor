@@ -135,9 +135,41 @@ Ensure high accuracy in capturing Internal, External, and Total marks columns. I
     });
   } catch (err: any) {
     console.error("Extraction error:", err);
+    
+    let userMessage = "Failed to extract student result from screenshot.";
+    const errString = err.message || String(err);
+    
+    if (errString.includes("leaked") || errString.includes("API key was reported as leaked")) {
+      userMessage = "Your Gemini API Key has been flagged as leaked or compromised. Please go to the Settings > Secrets panel in the AI Studio UI on the right to update or add a fresh, valid GEMINI_API_KEY.";
+    } else if (errString.includes("PERMISSION_DENIED") || errString.includes("Permission denied")) {
+      userMessage = "Permission Denied: Your Gemini API Key may be invalid, restricted, or expired. Please check your GEMINI_API_KEY in the Settings > Secrets panel of AI Studio.";
+    } else if (errString.includes("API_KEY_INVALID") || errString.includes("API key not valid")) {
+      userMessage = "Invalid API Key: Please configure a valid GEMINI_API_KEY in the Settings > Secrets panel of AI Studio.";
+    } else if (errString.includes("GEMINI_API_KEY environment variable is required")) {
+      userMessage = "Gemini API Key is missing. Please go to Settings > Secrets in the AI Studio panel to add your GEMINI_API_KEY.";
+    } else {
+      // Try to parse JSON from the error message if it's stringified
+      try {
+        const jsonMatch = errString.match(/({.*})/s);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[1]);
+          if (parsed.error?.message) {
+            userMessage = parsed.error.message;
+            if (userMessage.includes("leaked")) {
+              userMessage = "Your Gemini API Key has been flagged as leaked or compromised. Please go to the Settings > Secrets panel in the AI Studio UI on the right to update or add a fresh, valid GEMINI_API_KEY.";
+            }
+          }
+        } else {
+          userMessage = errString;
+        }
+      } catch (e) {
+        userMessage = errString;
+      }
+    }
+
     res.status(500).json({
       success: false,
-      error: err.message || "Failed to extract student result from screenshot.",
+      error: userMessage,
     });
   }
 });
