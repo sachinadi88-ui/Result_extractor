@@ -27,19 +27,8 @@ import {
 } from "firebase/database";
 import { StudentRecord } from "../types";
 
-// Primary provisioned Firebase config with Firestore Database ID
-const primaryConfig = {
-  apiKey: "AIzaSyBmqi5QS8fMuTKOsb7rXAoRzOPVSU-2dg0",
-  authDomain: "psyched-star-xcff3.firebaseapp.com",
-  projectId: "psyched-star-xcff3",
-  storageBucket: "psyched-star-xcff3.firebasestorage.app",
-  messagingSenderId: "764220476228",
-  appId: "1:764220476228:web:d07893f48df75e30dae511",
-  firestoreDatabaseId: "ai-studio-studentresultext-ae759918-5ce3-4205-bebd-2dc5cab06d89"
-};
-
-// Secondary config for RTDB if specified
-const rtdbConfig = {
+// Primary user-specified Firebase config (student-result-extractor)
+const userFirebaseConfig = {
   apiKey: "AIzaSyBSRrmol6HkekNpATVIH4NrVBZQfovSL5g",
   authDomain: "student-result-extractor.firebaseapp.com",
   databaseURL: "https://student-result-extractor-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -49,18 +38,30 @@ const rtdbConfig = {
   appId: "1:835969367322:web:fa3e7157ebed7e8e15c0a3"
 };
 
-// Initialize Primary App for Firestore & Auth
-const app = getApps().length === 0 ? initializeApp(primaryConfig) : getApps()[0];
-export const auth = getAuth(app);
-export const db = getFirestore(app, primaryConfig.firestoreDatabaseId);
+// Provisioned AI Studio config
+const provisionedConfig = {
+  apiKey: "AIzaSyBmqi5QS8fMuTKOsb7rXAoRzOPVSU-2dg0",
+  authDomain: "psyched-star-xcff3.firebaseapp.com",
+  projectId: "psyched-star-xcff3",
+  storageBucket: "psyched-star-xcff3.firebasestorage.app",
+  messagingSenderId: "764220476228",
+  appId: "1:764220476228:web:d07893f48df75e30dae511",
+  firestoreDatabaseId: "ai-studio-studentresultext-ae759918-5ce3-4205-bebd-2dc5cab06d89"
+};
 
-// Initialize RTDB App
-let rtdb: any = null;
+// Initialize Primary App (student-result-extractor)
+const app = getApps().length === 0 ? initializeApp(userFirebaseConfig) : getApps()[0];
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const rtdb = getDatabase(app);
+
+// Initialize Provisioned Firestore App (secondary)
+let dbProvisioned: any = null;
 try {
-  const rtdbApp = getApps().find(a => a.name === "rtdbApp") || initializeApp(rtdbConfig, "rtdbApp");
-  rtdb = getDatabase(rtdbApp);
+  const provApp = getApps().find(a => a.name === "provisionedApp") || initializeApp(provisionedConfig, "provisionedApp");
+  dbProvisioned = getFirestore(provApp, provisionedConfig.firestoreDatabaseId);
 } catch (e) {
-  console.warn("RTDB initialization skipped:", e);
+  console.warn("Provisioned DB init notice:", e);
 }
 
 export const googleProvider = new GoogleAuthProvider();
@@ -90,16 +91,26 @@ export async function saveRecordToFirestore(record: StudentRecord, userEmail: st
     updatedAt: new Date().toISOString()
   };
 
-  // 1. Save to Firestore (Primary)
+  // 1. Save to Firestore Primary (student-result-extractor)
   try {
     const recordRef = doc(db, "student_records", record.id);
     await setDoc(recordRef, docData, { merge: true });
-    console.log(`Saved student record ${record.id} (${record.usn}) to Firestore.`);
+    console.log(`Saved student record ${record.id} (${record.usn}) to student-result-extractor Firestore.`);
   } catch (error) {
-    console.warn("Firestore save error:", error);
+    console.warn("Primary Firestore save notice:", error);
   }
 
-  // 2. Try Realtime Database safely without throwing permission errors
+  // 2. Save to Provisioned Firestore if active
+  if (dbProvisioned) {
+    try {
+      const provRef = doc(dbProvisioned, "student_records", record.id);
+      await setDoc(provRef, docData, { merge: true });
+    } catch (error) {
+      console.warn("Provisioned Firestore save notice:", error);
+    }
+  }
+
+  // 3. Save to Realtime Database
   if (rtdb) {
     try {
       const userKey = sanitizeEmailKey(userEmail);
@@ -107,8 +118,7 @@ export async function saveRecordToFirestore(record: StudentRecord, userEmail: st
       await set(rtdbRef, docData);
       console.log(`Saved student record ${record.id} (${record.usn}) to Realtime Database.`);
     } catch (rtdbErr: any) {
-      // Gracefully log as warning if RTDB rules are non-public
-      console.warn("Realtime DB write skipped (check RTDB rules if needed):", rtdbErr?.message || rtdbErr);
+      console.warn("Realtime DB write notice:", rtdbErr?.message || rtdbErr);
     }
   }
 }
@@ -126,7 +136,7 @@ export async function saveMultipleRecordsToFirestore(records: StudentRecord[], u
 export async function fetchStudentRecordsFromFirestore(userEmail: string): Promise<StudentRecord[]> {
   const recordsMap = new Map<string, StudentRecord>();
 
-  // 1. Fetch from Firestore (Primary)
+  // 1. Fetch from Firestore Primary (student-result-extractor)
   try {
     const recordsCol = collection(db, "student_records");
     const q = query(recordsCol, where("extractedByEmail", "==", userEmail));
@@ -138,10 +148,27 @@ export async function fetchStudentRecordsFromFirestore(userEmail: string): Promi
       }
     });
   } catch (error) {
-    console.warn("Firestore fetch notice:", error);
+    console.warn("Primary Firestore fetch notice:", error);
   }
 
-  // 2. Fetch from Realtime Database if accessible
+  // 2. Fetch from Provisioned Firestore if active
+  if (dbProvisioned) {
+    try {
+      const recordsCol = collection(dbProvisioned, "student_records");
+      const q = query(recordsCol, where("extractedByEmail", "==", userEmail));
+      const querySnapshot = await getDocs(q);
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data() as StudentRecord;
+        if (data && data.id) {
+          recordsMap.set(data.id, data);
+        }
+      });
+    } catch (error) {
+      console.warn("Provisioned Firestore fetch notice:", error);
+    }
+  }
+
+  // 3. Fetch from Realtime Database if accessible
   if (rtdb) {
     try {
       const userKey = sanitizeEmailKey(userEmail);
@@ -164,15 +191,25 @@ export async function fetchStudentRecordsFromFirestore(userEmail: string): Promi
 }
 
 export async function deleteRecordFromFirestore(recordId: string, userEmail?: string): Promise<void> {
-  // 1. Firestore delete
+  // 1. Primary Firestore delete
   try {
     const recordRef = doc(db, "student_records", recordId);
     await deleteDoc(recordRef);
   } catch (error) {
-    console.warn("Firestore delete notice:", error);
+    console.warn("Primary Firestore delete notice:", error);
   }
 
-  // 2. Realtime DB delete
+  // 2. Provisioned Firestore delete
+  if (dbProvisioned) {
+    try {
+      const recordRef = doc(dbProvisioned, "student_records", recordId);
+      await deleteDoc(recordRef);
+    } catch (error) {
+      console.warn("Provisioned Firestore delete notice:", error);
+    }
+  }
+
+  // 3. Realtime DB delete
   if (rtdb && userEmail) {
     try {
       const userKey = sanitizeEmailKey(userEmail);
