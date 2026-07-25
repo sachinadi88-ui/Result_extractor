@@ -1,0 +1,20 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Root student records collection (used by automatic extraction and email-filtered queries)
+    match /student_records/{recordId} {
+      allow read, write: if true;
+    }
+
+    // Per-user subcollection path
+    match /users/{userId}/records/{recordId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Default match for other collections
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

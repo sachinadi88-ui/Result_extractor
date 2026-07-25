@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileSpreadsheet, Upload, Clipboard, Download, Trash2, GraduationCap, LogOut, ShieldCheck } from 'lucide-react';
+import { FileSpreadsheet, Upload, Clipboard, Download, Trash2, GraduationCap, LogOut, ShieldCheck, Database, Save } from 'lucide-react';
 import { StudentRecord, AuthUser } from '../types';
 
 interface HeaderProps {
@@ -8,6 +8,7 @@ interface HeaderProps {
   onOpenUpload: () => void;
   onPasteClipboard: () => void;
   onExportCsv: () => void;
+  onSaveToDatabase: () => void;
   onClearAll: () => void;
   onSignOut: () => void;
 }
@@ -18,6 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenUpload,
   onPasteClipboard,
   onExportCsv,
+  onSaveToDatabase,
   onClearAll,
   onSignOut,
 }) => {
@@ -121,6 +123,15 @@ export const Header: React.FC<HeaderProps> = ({
                   >
                     <Download className="w-4 h-4" />
                     <span className="hidden sm:inline">Export CSV</span>
+                  </button>
+
+                  <button
+                    onClick={onSaveToDatabase}
+                    title="Save or sync unsaved changes to Firebase database"
+                    className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span className="hidden sm:inline">Save to Database</span>
                   </button>
 
                   <button

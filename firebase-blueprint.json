@@ -1,0 +1,28 @@
+{
+  "entities": {
+    "student_records": {
+      "title": "Student Records",
+      "description": "Extracted student result records stored in Firestore",
+      "type": "object",
+      "properties": {
+        "usn": { "type": "string", "description": "University Seat Number" },
+        "studentName": { "type": "string", "description": "Student full name" },
+        "semester": { "type": "string", "description": "Semester/Term" },
+        "branch": { "type": "string", "description": "Branch or Department" },
+        "college": { "type": "string", "description": "College name" },
+        "subjects": { "type": "array", "description": "List of subjects" },
+        "sgpa": { "type": "number", "description": "Semester GPA" },
+        "cgpa": { "type": "number", "description": "Cumulative GPA" },
+        "totalMarks": { "type": "number", "description": "Total marks" },
+        "maxMarks": { "type": "number", "description": "Max marks" },
+        "percentage": { "type": "number", "description": "Percentage" },
+        "resultStatus": { "type": "string", "description": "Result status (PASS/FAIL)" },
+        "extractedByEmail": { "type": "string", "description": "Email of user who extracted record" },
+        "extractedByName": { "type": "string", "description": "Name of user who extracted record" },
+        "extractedAt": { "type": "string", "description": "ISO timestamp" },
+        "updatedAt": { "type": "string", "description": "ISO timestamp" }
+      },
+      "required": ["usn", "studentName"]
+    }
+  }
+}

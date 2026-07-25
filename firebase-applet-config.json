@@ -3,6 +3,7 @@
   "appId": "1:764220476228:web:d07893f48df75e30dae511",
   "apiKey": "AIzaSyBmqi5QS8fMuTKOsb7rXAoRzOPVSU-2dg0",
   "authDomain": "psyched-star-xcff3.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-studentresultext-ae759918-5ce3-4205-bebd-2dc5cab06d89",
   "storageBucket": "psyched-star-xcff3.firebasestorage.app",
   "messagingSenderId": "764220476228",
   "measurementId": "",

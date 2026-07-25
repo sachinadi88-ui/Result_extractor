@@ -6,7 +6,13 @@ import { StudentDetailModal } from './components/StudentDetailModal';
 import { LoginPage } from './components/LoginPage';
 import { StudentRecord, AuthUser } from './types';
 import { getStoredStudentRecords, saveStudentRecords, exportToCsv } from './utils/storage';
-import { CheckCircle2, FileSpreadsheet, Plus, ShieldCheck } from 'lucide-react';
+import {
+  saveRecordToFirestore,
+  saveMultipleRecordsToFirestore,
+  fetchStudentRecordsFromFirestore,
+  deleteRecordFromFirestore
+} from './lib/firebase';
+import { CheckCircle2, FileSpreadsheet, Plus, ShieldCheck, Database } from 'lucide-react';
 
 const AUTH_STORAGE_KEY = 'vtu_auth_user_session_v1';
 
@@ -32,20 +38,41 @@ export default function App() {
   const [selectedStudent, setSelectedStudent] = useState<StudentRecord | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isSyncingFirebase, setIsSyncingFirebase] = useState<boolean>(false);
 
-  // Sync session & load user records when currentUser changes
+  // Sync session & load user records from Firestore and LocalStorage when currentUser changes
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(currentUser));
-      const stored = getStoredStudentRecords(currentUser.email);
-      setRecords(stored.filter((r) => !r.id.startsWith('sample-')));
+      const localStored = getStoredStudentRecords(currentUser.email).filter((r) => !r.id.startsWith('sample-'));
+      setRecords(localStored);
+
+      // Fetch persistent records from Firebase Firestore
+      setIsSyncingFirebase(true);
+      fetchStudentRecordsFromFirestore(currentUser.email).then((remoteRecords) => {
+        setIsSyncingFirebase(false);
+        if (remoteRecords && remoteRecords.length > 0) {
+          // Merge local and remote records avoiding duplicates by ID or USN
+          setRecords((prev) => {
+            const map = new Map<string, StudentRecord>();
+            prev.forEach((r) => map.set(r.id, r));
+            remoteRecords.forEach((r) => map.set(r.id, r));
+            const merged = Array.from(map.values());
+            saveStudentRecords(merged, currentUser.email);
+            return merged;
+          });
+        }
+      }).catch((err) => {
+        setIsSyncingFirebase(false);
+        console.error('Error syncing from Firebase Firestore:', err);
+      });
     } else {
       localStorage.removeItem(AUTH_STORAGE_KEY);
       setRecords([]);
     }
   }, [currentUser]);
 
-  // Save records under logged-in user's email
+  // Save records locally
   useEffect(() => {
     if (currentUser) {
       saveStudentRecords(records, currentUser.email);
@@ -82,8 +109,13 @@ export default function App() {
       imageUrl: imageBase64,
     }));
 
+    // Update React state
     setRecords((prev) => [...createdRecords, ...prev]);
-    showToast(`Successfully extracted ${createdRecords.length} student result(s) for ${currentUser.name}!`);
+
+    // Automatically store extracted student details into Firebase database!
+    saveMultipleRecordsToFirestore(createdRecords, currentUser.email);
+
+    showToast(`Successfully extracted & saved ${createdRecords.length} student record(s) to Firebase for ${currentUser.name}!`);
   };
 
   const handleSaveStudent = (updated: StudentRecord) => {
@@ -91,31 +123,55 @@ export default function App() {
     if (selectedStudent && selectedStudent.id === updated.id) {
       setSelectedStudent(updated);
     }
-    showToast('Student record updated successfully.');
+
+    if (currentUser) {
+      saveRecordToFirestore(updated, currentUser.email);
+    }
+    showToast('Student record updated & synced to Firebase.');
   };
 
   const handleDeleteStudent = (id: string) => {
     if (confirm('Are you sure you want to delete this student record?')) {
       setRecords((prev) => prev.filter((r) => r.id !== id));
+      deleteRecordFromFirestore(id, currentUser?.email);
       if (selectedStudent && selectedStudent.id === id) {
         setIsDetailOpen(false);
         setSelectedStudent(null);
       }
-      showToast('Student record deleted.');
+      showToast('Student record deleted from Firebase.');
     }
   };
 
   const handleClearAll = () => {
     if (!currentUser) return;
     if (confirm(`Are you sure you want to clear all student records for ${currentUser.name}?`)) {
+      records.forEach((r) => deleteRecordFromFirestore(r.id, currentUser.email));
       setRecords([]);
-      showToast('All student records cleared.');
+      showToast('All student records cleared from Firebase.');
     }
   };
 
   const handleExportCsv = () => {
     exportToCsv(records);
     showToast('Exporting student results to CSV format...');
+  };
+
+  const handleSaveToDatabase = async () => {
+    if (!currentUser) return;
+    if (records.length === 0) {
+      showToast('No student records to save.');
+      return;
+    }
+    setIsSyncingFirebase(true);
+    try {
+      await saveMultipleRecordsToFirestore(records, currentUser.email);
+      showToast(`Saved ${records.length} student record(s) to Firebase database!`);
+    } catch (err) {
+      console.error('Error saving to Firebase database:', err);
+      showToast('Failed to save records to database.');
+    } finally {
+      setIsSyncingFirebase(false);
+    }
   };
 
   // IF NOT LOGGED IN: Render Simple Google Login Page
@@ -134,6 +190,7 @@ export default function App() {
         onOpenUpload={() => setIsUploadOpen(true)}
         onPasteClipboard={() => setIsUploadOpen(true)}
         onExportCsv={handleExportCsv}
+        onSaveToDatabase={handleSaveToDatabase}
         onClearAll={handleClearAll}
         onSignOut={handleSignOut}
       />
@@ -150,11 +207,15 @@ export default function App() {
               className="w-10 h-10 rounded-full object-cover border border-emerald-500 shrink-0"
             />
             <div>
-              <p className="font-bold text-slate-900 flex items-center gap-1.5">
+              <p className="font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
                 <span>Logged in as:</span>
                 <span className="text-emerald-700 font-semibold">{currentUser.name}</span>
                 <span className="font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200 text-[11px]">
                   {currentUser.email}
+                </span>
+                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-[11px] font-medium">
+                  <Database className="w-3 h-3 text-orange-500" />
+                  <span>{isSyncingFirebase ? 'Syncing Firebase...' : 'Firebase Database Active'}</span>
                 </span>
               </p>
               <p className="text-slate-500 mt-0.5">
