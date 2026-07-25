@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, Plus, Edit2, FileText, CheckCircle2, XCircle, Eye, ChevronRight } from 'lucide-react';
+import { X, Save, Trash2, Plus, Edit2, FileText, CheckCircle2, XCircle, Eye, ChevronRight, Sparkles, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
 import { StudentRecord, SubjectResult } from '../types';
+import { isStudentPass, getEffectiveStatus } from '../utils/statusHelper';
 
 interface StudentDetailModalProps {
   student: StudentRecord | null;
@@ -19,11 +20,15 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 }) => {
   const [formData, setFormData] = useState<StudentRecord | null>(null);
   const [showOriginalImage, setShowOriginalImage] = useState<boolean>(true);
+  const [isReanalyzing, setIsReanalyzing] = useState<boolean>(false);
+  const [reanalyzeStatus, setReanalyzeStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     if (student) {
       // Deep copy to allow editing draft without mutating original state immediately
       setFormData(JSON.parse(JSON.stringify(student)));
+      setReanalyzeStatus(null);
+      setIsReanalyzing(false);
     }
   }, [student]);
 
@@ -57,10 +62,136 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     setFormData({ ...formData, subjects: updatedSubjects });
   };
 
+  const handleReanalyzeImage = async () => {
+    if (!formData?.imageUrl || isReanalyzing) return;
+
+    setIsReanalyzing(true);
+    setReanalyzeStatus(null);
+
+    try {
+      const response = await fetch('/api/extract-result', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageBase64: formData.imageUrl,
+          mimeType: 'image/png',
+        }),
+      });
+
+      const responseText = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        throw new Error(responseText || 'Server returned invalid response');
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to re-analyze image');
+      }
+
+      const extractedStudents = data.students || [];
+      if (extractedStudents.length === 0) {
+        throw new Error('No student data could be detected from the image.');
+      }
+
+      // Pick matching student or default to first
+      const match = extractedStudents.find((s: any) => 
+        (s.usn && formData.usn && s.usn.trim().toLowerCase() === formData.usn.trim().toLowerCase()) ||
+        (s.name && formData.name && s.name.trim().toLowerCase().includes(formData.name.trim().toLowerCase()))
+      ) || extractedStudents[0];
+
+      // Merge student metadata
+      setFormData((prev) => {
+        if (!prev) return null;
+
+        const mergedUSN = match.usn || prev.usn;
+        const mergedName = match.name || prev.name;
+        const mergedCollege = match.college || prev.college;
+        const mergedSemester = match.semester || prev.semester;
+        const mergedSgpa = match.sgpa || prev.sgpa;
+        const mergedStatus = match.status || prev.status;
+
+        // Merge subjects intelligently
+        const updatedSubjects = [...prev.subjects];
+        const extSubjects: SubjectResult[] = match.subjects || [];
+
+        extSubjects.forEach((extSub) => {
+          const extCode = (extSub.subjectCode || '').trim().toLowerCase();
+          const extName = (extSub.subjectName || '').trim().toLowerCase();
+
+          // Try to match existing subject index
+          const matchIdx = updatedSubjects.findIndex((s) => {
+            const sCode = (s.subjectCode || '').trim().toLowerCase();
+            const sName = (s.subjectName || '').trim().toLowerCase();
+            return (extCode && sCode && extCode === sCode) || (extName && sName && (sName.includes(extName) || extName.includes(sName)));
+          });
+
+          if (matchIdx !== -1) {
+            const existing = updatedSubjects[matchIdx];
+            updatedSubjects[matchIdx] = {
+              subjectCode: extSub.subjectCode || existing.subjectCode || '',
+              subjectName: extSub.subjectName || existing.subjectName || '',
+              internalMarks: extSub.internalMarks || existing.internalMarks || '',
+              externalMarks: extSub.externalMarks || existing.externalMarks || '',
+              totalMarks: extSub.totalMarks || existing.totalMarks || '',
+              result: extSub.result || existing.result || 'PASS',
+              grade: extSub.grade || existing.grade,
+              credits: extSub.credits || existing.credits,
+            };
+          } else {
+            updatedSubjects.push({
+              subjectCode: extSub.subjectCode || '',
+              subjectName: extSub.subjectName || 'Subject',
+              internalMarks: extSub.internalMarks || '',
+              externalMarks: extSub.externalMarks || '',
+              totalMarks: extSub.totalMarks || '',
+              result: extSub.result || 'PASS',
+              grade: extSub.grade,
+              credits: extSub.credits,
+            });
+          }
+        });
+
+        return {
+          ...prev,
+          usn: mergedUSN,
+          name: mergedName,
+          college: mergedCollege,
+          semester: mergedSemester,
+          sgpa: mergedSgpa,
+          status: mergedStatus,
+          subjects: updatedSubjects,
+        };
+      });
+
+      setReanalyzeStatus({
+        type: 'success',
+        message: 'Image re-analyzed successfully! Updated external marks and missing values.',
+      });
+
+      setTimeout(() => {
+        setReanalyzeStatus(null);
+      }, 5000);
+
+    } catch (err: any) {
+      console.error('Re-analyze error:', err);
+      setReanalyzeStatus({
+        type: 'error',
+        message: err.message || 'Failed to re-analyze image.',
+      });
+    } finally {
+      setIsReanalyzing(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData) {
-      onSave(formData);
+      const finalStatus = getEffectiveStatus(formData);
+      onSave({ ...formData, status: finalStatus });
       onClose();
     }
   };
@@ -82,18 +213,39 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
           </div>
           <div className="flex items-center space-x-2">
             {formData.imageUrl && (
-              <button
-                type="button"
-                onClick={() => setShowOriginalImage(!showOriginalImage)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors flex items-center space-x-1.5 ${
-                  showOriginalImage
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>{showOriginalImage ? 'Hide Screenshot' : 'View Screenshot'}</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleReanalyzeImage}
+                  disabled={isReanalyzing}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 transition-colors flex items-center space-x-1.5 shadow-sm cursor-pointer"
+                  title="Re-scan marks card image with AI to extract missing values or external marks"
+                >
+                  {isReanalyzing ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Re-analyzing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Re-analyze Image</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowOriginalImage(!showOriginalImage)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors flex items-center space-x-1.5 ${
+                    showOriginalImage
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>{showOriginalImage ? 'Hide Screenshot' : 'View Screenshot'}</span>
+                </button>
+              </>
             )}
             <button
               onClick={onClose}
@@ -105,7 +257,32 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
+
+          {/* Re-analyze status message */}
+          {reanalyzeStatus && (
+            <div className={`p-3 rounded-lg text-xs font-medium flex items-center justify-between transition-all ${
+              reanalyzeStatus.type === 'success' 
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
+                : 'bg-red-50 text-red-800 border border-red-200'
+            }`}>
+              <div className="flex items-center space-x-2">
+                {reanalyzeStatus.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                )}
+                <span>{reanalyzeStatus.message}</span>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setReanalyzeStatus(null)} 
+                className="text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
           
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
@@ -113,15 +290,33 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
             {formData.imageUrl && showOriginalImage && (
               <div className="lg:col-span-5 bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col">
                 <div className="text-xs font-semibold text-slate-700 mb-2 flex items-center justify-between">
-                  <span>Source Screenshot</span>
-                  <span className="text-[10px] text-slate-400 font-normal">Original AI Input</span>
+                  <span className="flex items-center space-x-1.5">
+                    <span>Source Screenshot</span>
+                    {isReanalyzing && <Loader2 className="w-3 h-3 text-emerald-600 animate-spin" />}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleReanalyzeImage}
+                    disabled={isReanalyzing}
+                    className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded transition-colors flex items-center space-x-1 cursor-pointer disabled:opacity-50"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span>{isReanalyzing ? 'Scanning...' : 'Re-analyze'}</span>
+                  </button>
                 </div>
-                <div className="flex-1 min-h-[280px] max-h-[500px] flex items-center justify-center overflow-auto rounded-lg bg-slate-900 border border-slate-200 p-2">
+                <div className="flex-1 min-h-[280px] max-h-[500px] flex items-center justify-center overflow-auto rounded-lg bg-slate-900 border border-slate-200 p-2 relative">
                   <img
                     src={formData.imageUrl}
                     alt="Student Marksheet"
                     className="max-w-full h-auto object-contain rounded"
                   />
+                  {isReanalyzing && (
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px] flex flex-col items-center justify-center text-white p-4 text-center">
+                      <Loader2 className="w-8 h-8 text-emerald-400 animate-spin mb-2" />
+                      <p className="text-xs font-semibold">Re-analyzing image with Gemini AI...</p>
+                      <p className="text-[10px] text-slate-300 mt-1">Extracting external marks and subject details</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -191,7 +386,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                   <div>
                     <label className="block text-slate-600 mb-1 font-medium">Overall Status</label>
                     <select
-                      value={formData.status || 'PASS'}
+                      value={getEffectiveStatus(formData)}
                       onChange={(e) => handleFieldChange('status', e.target.value)}
                       className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 focus:outline-none focus:border-emerald-600 font-semibold"
                     >

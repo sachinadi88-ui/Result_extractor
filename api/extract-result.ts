@@ -77,13 +77,13 @@ Carefully extract:
 8. All Subjects listed in the table or columns:
    - Subject code (e.g. 21CS51)
    - Subject name (e.g. Software Engineering)
-   - Internal Marks (Internal / IA / CIE / Continuous Evaluation marks)
-   - External Marks (External / SEE / EA / Semester Exam marks)
-   - Total Marks (Total / Combined Marks / Max Marks)
+   - Internal Marks (often labeled as INT, CIE, IA, Internal, CIE Marks, IA Marks).
+   - External Marks (often labeled as EXT, SEE, EA, External, SEE Marks, Semester End Exam, Ext, Theory, S.E., E.E., EA Marks). Make sure to extract these values and populate the externalMarks field properly.
+   - Total Marks (often labeled as TOT, TOTAL, Total Marks, Combined, Max, or obt).
    - Result / Grade (e.g. PASS, FAIL, S, A+, 85, P, F)
    - Grade letter and credits if visible.
 
-Ensure high accuracy in capturing Internal, External, and Total marks columns. If multiple students are shown, extract each student separately.`,
+Ensure high accuracy in capturing Internal, External, and Total marks columns. Look closely at columns labeled EXT or SEE for the External marks. If multiple students are shown, extract each student separately.`,
               },
             ],
           },
@@ -115,8 +115,14 @@ Ensure high accuracy in capturing Internal, External, and Total marks columns. I
                             subjectCode: { type: Type.STRING, description: "Subject code" },
                             subjectName: { type: Type.STRING, description: "Subject full name" },
                             result: { type: Type.STRING, description: "Result or grade from next column" },
-                            internalMarks: { type: Type.STRING, description: "Internal marks" },
-                            externalMarks: { type: Type.STRING, description: "External marks" },
+                          internalMarks: { 
+                            type: Type.STRING, 
+                            description: "Internal assessment marks (Continuous Internal Evaluation / CIE / IA / Int / IA Marks / Internal / CIE Marks)" 
+                          },
+                          externalMarks: { 
+                            type: Type.STRING, 
+                            description: "External exam marks (Semester End Examination / SEE / EA / Ext / EXT / SEE Marks / External Assessment / Theory / Written / End Sem / EA Marks)" 
+                          },
                             totalMarks: { type: Type.STRING, description: "Total marks" },
                             grade: { type: Type.STRING, description: "Grade letter" },
                             credits: { type: Type.STRING, description: "Credits" },
@@ -159,9 +165,54 @@ Ensure high accuracy in capturing Internal, External, and Total marks columns. I
     const jsonText = response.text || "{}";
     const parsedData = JSON.parse(jsonText);
 
+    const students = (parsedData.students || []).map((student: any) => {
+      if (student.subjects && Array.isArray(student.subjects)) {
+        student.subjects = student.subjects.map((sub: any) => {
+          const extVal = sub.externalMarks || sub.ext || sub.external || sub.see || sub.ea || sub.external_marks || sub.extMarks;
+          const intVal = sub.internalMarks || sub.int || sub.internal || sub.cie || sub.ia || sub.internal_marks || sub.intMarks;
+          const totVal = sub.totalMarks || sub.total || sub.tot || sub.total_marks || sub.totMarks;
+          const subCode = sub.subjectCode || sub.code || sub.subCode || sub.subject_code;
+          const subName = sub.subjectName || sub.name || sub.subName || sub.subject_name;
+          const resVal = sub.result || sub.grade || sub.remarks || sub.status;
+
+          return {
+            ...sub,
+            subjectCode: subCode ? String(subCode).trim() : sub.subjectCode,
+            subjectName: subName ? String(subName).trim() : sub.subjectName,
+            externalMarks: extVal !== undefined && extVal !== null ? String(extVal).trim() : sub.externalMarks,
+            internalMarks: intVal !== undefined && intVal !== null ? String(intVal).trim() : sub.internalMarks,
+            totalMarks: totVal !== undefined && totVal !== null ? String(totVal).trim() : sub.totalMarks,
+            result: resVal !== undefined && resVal !== null ? String(resVal).trim() : sub.result,
+          };
+        });
+      }
+      const hasFail = student.subjects?.some((s: any) => {
+        const res = String(s.result || '').toUpperCase().trim();
+        const gr = String(s.grade || '').toUpperCase().trim();
+        return (
+          res === 'F' ||
+          res === 'FAIL' ||
+          res.includes('FAIL') ||
+          res === 'AB' ||
+          res === 'ABSENT' ||
+          gr === 'F' ||
+          gr === 'FAIL' ||
+          gr.includes('FAIL') ||
+          gr === 'AB'
+        );
+      });
+
+      if (hasFail) {
+        student.status = 'FAIL';
+      } else if (!student.status || !String(student.status).trim()) {
+        student.status = 'PASS';
+      }
+      return student;
+    });
+
     return res.status(200).json({
       success: true,
-      students: parsedData.students || [],
+      students: students,
       rawText: jsonText,
     });
   } catch (err: any) {

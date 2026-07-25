@@ -6,6 +6,7 @@ import { StudentDetailModal } from './components/StudentDetailModal';
 import { LoginPage } from './components/LoginPage';
 import { StudentRecord, AuthUser } from './types';
 import { getStoredStudentRecords, saveStudentRecords, exportToCsv } from './utils/storage';
+import { getEffectiveStatus } from './utils/statusHelper';
 import {
   saveRecordToFirestore,
   saveMultipleRecordsToFirestore,
@@ -104,6 +105,7 @@ export default function App() {
 
     const createdRecords: StudentRecord[] = newStudents.map((s, idx) => ({
       ...s,
+      status: getEffectiveStatus(s),
       id: `rec-${Date.now()}-${idx}`,
       uploadedAt: new Date().toISOString(),
       imageUrl: imageBase64,

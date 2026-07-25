@@ -1,4 +1,5 @@
 import { StudentRecord } from '../types';
+import { getEffectiveStatus } from './statusHelper';
 
 const BASE_STORAGE_KEY = 'student_results_extracted_v1';
 
@@ -82,12 +83,14 @@ export function exportToCsv(records: StudentRecord[]): void {
   ];
 
   records.forEach((rec) => {
+    const statusVal = getEffectiveStatus(rec);
+
     const row: string[] = [
       escapeCsvCell(rec.usn || ''),
       escapeCsvCell(rec.name || ''),
       escapeCsvCell(rec.college || ''),
       escapeCsvCell(rec.semester || ''),
-      escapeCsvCell(rec.status || ''),
+      escapeCsvCell(statusVal),
       escapeCsvCell(rec.sgpa || ''),
     ];
 

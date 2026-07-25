@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Search,
   Filter,
@@ -20,6 +20,7 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 import { StudentRecord, SubjectResult } from '../types';
+import { isSubjectPass, isStudentPass, getEffectiveStatus } from '../utils/statusHelper';
 
 interface ResultsTableProps {
   records: StudentRecord[];
@@ -63,7 +64,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
           (s.result || '').toLowerCase().includes(query)
       );
 
-    const isPass = rec.status?.toUpperCase().includes('PASS') || rec.subjects?.every((s) => !(s.result || '').toUpperCase().includes('FAIL'));
+    const isPass = isStudentPass(rec);
     const matchesStatus =
       statusFilter === 'ALL' ||
       (statusFilter === 'PASS' && isPass) ||
@@ -86,6 +87,58 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
 
   // Calculate dynamic maximum subject count for matrix view
   const maxSubjects = records.reduce((max, r) => Math.max(max, r.subjects ? r.subjects.length : 0), 0);
+
+  // Sync horizontal scrolling refs for Matrix view
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const matrixTableScrollRef = useRef<HTMLDivElement>(null);
+  const matrixTableRef = useRef<HTMLTableElement>(null);
+  const [matrixTableWidth, setMatrixTableWidth] = useState<number>(0);
+  const isSyncingScroll = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (viewMode !== 'matrix') return;
+
+    const updateWidth = () => {
+      if (matrixTableRef.current) {
+        setMatrixTableWidth(matrixTableRef.current.scrollWidth);
+      } else if (matrixTableScrollRef.current) {
+        setMatrixTableWidth(matrixTableScrollRef.current.scrollWidth);
+      }
+    };
+
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    if (matrixTableRef.current) {
+      observer.observe(matrixTableRef.current);
+    }
+    if (matrixTableScrollRef.current) {
+      observer.observe(matrixTableScrollRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [viewMode, records, searchQuery, statusFilter, sortField, sortAsc]);
+
+  const handleTopScroll = () => {
+    if (isSyncingScroll.current) return;
+    if (topScrollRef.current && matrixTableScrollRef.current) {
+      isSyncingScroll.current = true;
+      matrixTableScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+      requestAnimationFrame(() => {
+        isSyncingScroll.current = false;
+      });
+    }
+  };
+
+  const handleMatrixTableScroll = () => {
+    if (isSyncingScroll.current) return;
+    if (topScrollRef.current && matrixTableScrollRef.current) {
+      isSyncingScroll.current = true;
+      topScrollRef.current.scrollLeft = matrixTableScrollRef.current.scrollLeft;
+      requestAnimationFrame(() => {
+        isSyncingScroll.current = false;
+      });
+    }
+  };
 
   if (records.length === 0) {
     return (
@@ -238,7 +291,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {sortedRecords.map((student) => {
-                  const isPass = student.status?.toUpperCase().includes('PASS') || student.subjects?.every((s) => !(s.result || '').toUpperCase().includes('FAIL'));
+                  const isPass = isStudentPass(student);
+                  const displayStatus = getEffectiveStatus(student);
 
                   return (
                     <tr
@@ -286,7 +340,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                         <div className="flex flex-wrap gap-2 max-w-3xl">
                           {student.subjects && student.subjects.length > 0 ? (
                             student.subjects.map((s, idx) => {
-                              const subPass = !(s.result || '').toUpperCase().includes('FAIL') && s.result !== 'F';
+                              const subPass = isSubjectPass(s);
                               const hasMarks = s.internalMarks || s.externalMarks || s.totalMarks;
 
                               return (
@@ -344,7 +398,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                           ) : (
                             <XCircle className="w-3.5 h-3.5 text-red-600" />
                           )}
-                          <span>{student.status || (isPass ? 'PASS' : 'FAIL')}</span>
+                          <span>{displayStatus}</span>
                         </span>
                         {student.sgpa && (
                           <div className="text-[10px] text-slate-500 mt-1 font-mono">
@@ -388,73 +442,97 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
 
       {/* VIEW MODE 2: Column Matrix View */}
       {viewMode === 'matrix' && (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left text-slate-700">
-              <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold border-b border-slate-200">
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm flex flex-col">
+          {/* Top Horizontal Scrollbar */}
+          <div
+            ref={topScrollRef}
+            onScroll={handleTopScroll}
+            className="overflow-x-auto overflow-y-hidden border-b border-slate-200 bg-slate-50/80 py-1"
+          >
+            <div style={{ width: matrixTableWidth ? `${matrixTableWidth}px` : '100%' }} className="h-1.5 min-w-full" />
+          </div>
+
+          <div ref={matrixTableScrollRef} onScroll={handleMatrixTableScroll} className="overflow-x-auto relative">
+            <table ref={matrixTableRef} className="w-full text-xs text-left text-slate-700 border-collapse">
+              <thead className="bg-slate-50 text-slate-500 uppercase text-[12px] font-bold border-b border-slate-200">
                 <tr>
-                  <th className="px-4 py-3 min-w-[120px]">USN</th>
-                  <th className="px-4 py-3 min-w-[160px]">Student Name</th>
+                  <th className="px-1 py-2 w-[38px] min-w-[38px] max-w-[38px] text-center sticky left-0 z-20 bg-slate-50 border-r border-slate-200/80 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)]">
+                    S.N.
+                  </th>
+                  <th className="px-1.5 py-2 w-[90px] min-w-[90px] max-w-[90px] sticky left-[38px] z-20 bg-slate-50 border-r border-slate-200/80 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)]">
+                    USN
+                  </th>
+                  <th className="px-2 py-2 w-[150px] min-w-[150px] max-w-[150px] sticky left-[128px] z-20 bg-slate-50 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">
+                    Student Name
+                  </th>
                   {Array.from({ length: maxSubjects }).map((_, i) => (
-                    <th key={i} className="px-4 py-3 min-w-[150px]">
+                    <th key={i} className="px-3 py-2 min-w-[160px]">
                       Subject #{i + 1}
                     </th>
                   ))}
-                  <th className="px-4 py-3 text-center min-w-[100px]">Status</th>
-                  <th className="px-4 py-3 text-right min-w-[90px]">Actions</th>
+                  <th className="px-3 py-2 text-center min-w-[90px]">Status</th>
+                  <th className="px-3 py-2 text-right min-w-[80px]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {sortedRecords.map((student) => {
-                  const isPass = student.status?.toUpperCase().includes('PASS') || student.subjects?.every((s) => !(s.result || '').toUpperCase().includes('FAIL'));
+                {sortedRecords.map((student, index) => {
+                  const isPass = isStudentPass(student);
+                  const displayStatus = getEffectiveStatus(student);
 
                   return (
                     <tr
                       key={student.id}
                       onClick={() => onSelectStudent(student)}
-                      className="hover:bg-slate-50 transition-colors cursor-pointer"
+                      className="group hover:bg-slate-50 transition-colors cursor-pointer"
                     >
-                      <td className="px-4 py-3 font-mono font-bold text-emerald-600">{student.usn}</td>
-                      <td className="px-4 py-3 font-semibold text-slate-800">{student.name}</td>
+                      <td className="px-1 py-1.5 w-[38px] min-w-[38px] max-w-[38px] text-center sticky left-0 z-10 bg-white group-hover:bg-slate-50 font-mono text-slate-500 text-[11px] font-semibold border-r border-slate-200/80 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] truncate">
+                        {index + 1}
+                      </td>
+                      <td className="px-1.5 py-1.5 w-[90px] min-w-[90px] max-w-[90px] sticky left-[38px] z-10 bg-white group-hover:bg-slate-50 font-mono font-bold text-emerald-600 text-[13px] border-r border-slate-200/80 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] truncate">
+                        {student.usn}
+                      </td>
+                      <td className="px-2 py-1.5 w-[150px] min-w-[150px] max-w-[150px] sticky left-[128px] z-10 bg-white group-hover:bg-slate-50 font-semibold text-slate-800 text-[12px] border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] whitespace-normal break-words leading-tight">
+                        {student.name}
+                      </td>
                       {Array.from({ length: maxSubjects }).map((_, i) => {
                         const sub = student.subjects?.[i];
                         if (!sub) {
-                          return <td key={i} className="px-4 py-3 text-slate-400 text-[10px] italic">-</td>;
+                          return <td key={i} className="px-3 py-1.5 text-slate-400 text-[10px] italic">-</td>;
                         }
-                        const pass = !(sub.result || '').toUpperCase().includes('FAIL') && sub.result !== 'F';
+                        const pass = isSubjectPass(sub);
                         return (
-                          <td key={i} className="px-4 py-3">
-                            <div className="font-medium text-slate-800 text-[11px] truncate max-w-[180px]" title={sub.subjectName}>
+                          <td key={i} className="px-3 py-1.5">
+                            <div className="font-medium text-slate-800 text-[11px] truncate max-w-[160px] leading-tight" title={sub.subjectName}>
                               {sub.subjectCode ? `${sub.subjectCode} ` : ''}{sub.subjectName}
                             </div>
                             {(sub.internalMarks || sub.externalMarks || sub.totalMarks) && (
-                              <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                              <div className="text-[10px] text-slate-500 font-mono leading-tight mt-0.5">
                                 Int: {sub.internalMarks || '-'} | Ext: {sub.externalMarks || '-'} | Tot: <strong className="text-slate-800">{sub.totalMarks || '-'}</strong>
                               </div>
                             )}
-                            <div className={`font-bold text-[10px] mt-0.5 ${pass ? 'text-emerald-600' : 'text-red-600'}`}>
+                            <div className={`font-bold text-[10px] leading-tight mt-0.5 ${pass ? 'text-emerald-600' : 'text-red-600'}`}>
                               Result: {sub.result}
                             </div>
                           </td>
                         );
                       })}
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-3 py-1.5 text-center">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isPass ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
-                          {student.status || (isPass ? 'PASS' : 'FAIL')}
+                          {displayStatus}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-3 py-1.5 text-right">
                         <div className="flex items-center justify-end space-x-1" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => onSelectStudent(student)}
-                            className="p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-colors"
+                            className="p-1 rounded-lg bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-colors"
                             title="View / Edit details"
                           >
                             <Edit className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => onDeleteStudent(student.id)}
-                            className="p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                            className="p-1 rounded-lg bg-slate-100 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                             title="Delete row"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -474,7 +552,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
       {viewMode === 'cards' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {sortedRecords.map((student) => {
-            const isPass = student.status?.toUpperCase().includes('PASS') || student.subjects?.every((s) => !(s.result || '').toUpperCase().includes('FAIL'));
+            const isPass = isStudentPass(student);
+            const displayStatus = getEffectiveStatus(student);
 
             return (
               <div
@@ -499,7 +578,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                           : 'bg-red-50 text-red-700 border-red-200'
                       }`}
                     >
-                      {student.status || (isPass ? 'PASS' : 'FAIL')}
+                      {displayStatus}
                     </span>
                   </div>
 
@@ -520,7 +599,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             </span>
                             <span
                               className={`font-bold font-mono text-[10px] px-1.5 py-0.5 rounded ${
-                                (s.result || '').toUpperCase().includes('FAIL') || s.result === 'F'
+                                !isSubjectPass(s)
                                   ? 'bg-red-100 text-red-800'
                                   : 'bg-emerald-100 text-emerald-800'
                               }`}
