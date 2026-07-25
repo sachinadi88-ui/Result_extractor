@@ -60,10 +60,10 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
         (s) =>
           s.subjectName.toLowerCase().includes(query) ||
           s.subjectCode?.toLowerCase().includes(query) ||
-          s.result.toLowerCase().includes(query)
+          (s.result || '').toLowerCase().includes(query)
       );
 
-    const isPass = rec.status?.toUpperCase().includes('PASS') || rec.subjects?.every((s) => !s.result.toUpperCase().includes('FAIL'));
+    const isPass = rec.status?.toUpperCase().includes('PASS') || rec.subjects?.every((s) => !(s.result || '').toUpperCase().includes('FAIL'));
     const matchesStatus =
       statusFilter === 'ALL' ||
       (statusFilter === 'PASS' && isPass) ||
@@ -238,7 +238,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {sortedRecords.map((student) => {
-                  const isPass = student.status?.toUpperCase().includes('PASS') || student.subjects?.every((s) => !s.result.toUpperCase().includes('FAIL'));
+                  const isPass = student.status?.toUpperCase().includes('PASS') || student.subjects?.every((s) => !(s.result || '').toUpperCase().includes('FAIL'));
 
                   return (
                     <tr
@@ -286,7 +286,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                         <div className="flex flex-wrap gap-2 max-w-3xl">
                           {student.subjects && student.subjects.length > 0 ? (
                             student.subjects.map((s, idx) => {
-                              const subPass = !s.result.toUpperCase().includes('FAIL') && s.result !== 'F';
+                              const subPass = !(s.result || '').toUpperCase().includes('FAIL') && s.result !== 'F';
                               const hasMarks = s.internalMarks || s.externalMarks || s.totalMarks;
 
                               return (
@@ -406,7 +406,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {sortedRecords.map((student) => {
-                  const isPass = student.status?.toUpperCase().includes('PASS') || student.subjects?.every((s) => !s.result.toUpperCase().includes('FAIL'));
+                  const isPass = student.status?.toUpperCase().includes('PASS') || student.subjects?.every((s) => !(s.result || '').toUpperCase().includes('FAIL'));
 
                   return (
                     <tr
@@ -421,7 +421,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                         if (!sub) {
                           return <td key={i} className="px-4 py-3 text-slate-400 text-[10px] italic">-</td>;
                         }
-                        const pass = !sub.result.toUpperCase().includes('FAIL') && sub.result !== 'F';
+                        const pass = !(sub.result || '').toUpperCase().includes('FAIL') && sub.result !== 'F';
                         return (
                           <td key={i} className="px-4 py-3">
                             <div className="font-medium text-slate-800 text-[11px] truncate max-w-[180px]" title={sub.subjectName}>
@@ -474,7 +474,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
       {viewMode === 'cards' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {sortedRecords.map((student) => {
-            const isPass = student.status?.toUpperCase().includes('PASS') || student.subjects?.every((s) => !s.result.toUpperCase().includes('FAIL'));
+            const isPass = student.status?.toUpperCase().includes('PASS') || student.subjects?.every((s) => !(s.result || '').toUpperCase().includes('FAIL'));
 
             return (
               <div
@@ -520,7 +520,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             </span>
                             <span
                               className={`font-bold font-mono text-[10px] px-1.5 py-0.5 rounded ${
-                                s.result.toUpperCase().includes('FAIL') || s.result === 'F'
+                                (s.result || '').toUpperCase().includes('FAIL') || s.result === 'F'
                                   ? 'bg-red-100 text-red-800'
                                   : 'bg-emerald-100 text-emerald-800'
                               }`}

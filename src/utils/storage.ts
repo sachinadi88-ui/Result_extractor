@@ -15,31 +15,11 @@ export function getStoredStudentRecords(userId: string = 'guest'): StudentRecord
 }
 
 export function saveStudentRecords(records: StudentRecord[], userId: string = 'guest'): void {
-  const key = `${BASE_STORAGE_KEY}_${userId}`;
   try {
+    const key = `${BASE_STORAGE_KEY}_${userId}`;
     localStorage.setItem(key, JSON.stringify(records));
   } catch (e) {
-    console.warn('LocalStorage quota exceeded, attempting self-healing by stripping image URLs from older records...', e);
-    try {
-      // Self-heal: Keep imageUrl only for the 3 most recent records, strip for older ones
-      const healedRecords = records.map((rec, idx) => {
-        if (idx >= 3) {
-          return { ...rec, imageUrl: undefined };
-        }
-        return rec;
-      });
-      localStorage.setItem(key, JSON.stringify(healedRecords));
-      console.log('Self-healing successful! Saved records after stripping older images.');
-    } catch (innerError) {
-      console.error('Self-healing failed. Stripping all image URLs...', innerError);
-      try {
-        const fullyHealed = records.map(rec => ({ ...rec, imageUrl: undefined }));
-        localStorage.setItem(key, JSON.stringify(fullyHealed));
-        console.log('Saved records successfully after stripping all images.');
-      } catch (lastError) {
-        console.error('Failed to save even without image URLs:', lastError);
-      }
-    }
+    console.error('Error saving records:', e);
   }
 }
 

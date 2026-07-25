@@ -286,14 +286,14 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                           <td className="px-3 py-2">
                             <input
                               type="text"
-                              value={sub.result}
+                              value={sub.result || ''}
                               onChange={(e) => handleSubjectChange(idx, 'result', e.target.value)}
                               required
                               placeholder="PASS / FAIL"
                               className={`w-full px-2 py-1 rounded border font-bold focus:outline-none ${
-                                sub.result.toUpperCase().includes('PASS') || sub.result === 'P'
+                                (sub.result || '').toUpperCase().includes('PASS') || sub.result === 'P'
                                   ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                                  : sub.result.toUpperCase().includes('FAIL') || sub.result === 'F'
+                                  : (sub.result || '').toUpperCase().includes('FAIL') || sub.result === 'F'
                                   ? 'text-red-700 bg-red-50 border-red-200'
                                   : 'text-amber-700 bg-amber-50 border-amber-200'
                               }`}
