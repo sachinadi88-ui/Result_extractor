@@ -4,6 +4,7 @@ import { ResultsTable } from './components/ResultsTable';
 import { UploadModal } from './components/UploadModal';
 import { StudentDetailModal } from './components/StudentDetailModal';
 import { LoginPage } from './components/LoginPage';
+import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { StudentRecord, AuthUser } from './types';
 import { getStoredStudentRecords, saveStudentRecords, exportToCsv } from './utils/storage';
 import { getEffectiveStatus } from './utils/statusHelper';
@@ -40,6 +41,7 @@ export default function App() {
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSyncingFirebase, setIsSyncingFirebase] = useState<boolean>(false);
+  const [isClearAllConfirmOpen, setIsClearAllConfirmOpen] = useState<boolean>(false);
 
   // Sync session & load user records from Firestore and LocalStorage when currentUser changes
   useEffect(() => {
@@ -133,24 +135,25 @@ export default function App() {
   };
 
   const handleDeleteStudent = (id: string) => {
-    if (confirm('Are you sure you want to delete this student record?')) {
-      setRecords((prev) => prev.filter((r) => r.id !== id));
-      deleteRecordFromFirestore(id, currentUser?.email);
-      if (selectedStudent && selectedStudent.id === id) {
-        setIsDetailOpen(false);
-        setSelectedStudent(null);
-      }
-      showToast('Student record deleted from Firebase.');
+    setRecords((prev) => prev.filter((r) => r.id !== id));
+    deleteRecordFromFirestore(id, currentUser?.email);
+    if (selectedStudent && selectedStudent.id === id) {
+      setIsDetailOpen(false);
+      setSelectedStudent(null);
     }
+    showToast('Student record deleted from Firebase.');
   };
 
   const handleClearAll = () => {
+    setIsClearAllConfirmOpen(true);
+  };
+
+  const confirmClearAll = () => {
     if (!currentUser) return;
-    if (confirm(`Are you sure you want to clear all student records for ${currentUser.name}?`)) {
-      records.forEach((r) => deleteRecordFromFirestore(r.id, currentUser.email));
-      setRecords([]);
-      showToast('All student records cleared from Firebase.');
-    }
+    records.forEach((r) => deleteRecordFromFirestore(r.id, currentUser.email));
+    setRecords([]);
+    setIsClearAllConfirmOpen(false);
+    showToast('All student records cleared from Firebase.');
   };
 
   const handleExportCsv = () => {
@@ -275,6 +278,15 @@ export default function App() {
         student={selectedStudent}
         onSave={handleSaveStudent}
         onDelete={handleDeleteStudent}
+      />
+
+      {/* Clear All Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={isClearAllConfirmOpen}
+        title="Clear All Records?"
+        message={`Are you sure you want to delete ALL ${records.length} student record(s) for ${currentUser?.name}? This action cannot be undone.`}
+        onConfirm={confirmClearAll}
+        onCancel={() => setIsClearAllConfirmOpen(false)}
       />
 
       {/* Floating Toast Notification */}
