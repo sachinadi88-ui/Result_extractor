@@ -1,49 +1,38 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
-  <defs>
-    <linearGradient id="icon-grad" x1="100%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#EA384D" />
-      <stop offset="35%" stop-color="#F95716" />
-      <stop offset="70%" stop-color="#FA8C16" />
-      <stop offset="100%" stop-color="#FADB14" />
-    </linearGradient>
-    <mask id="browser-mask">
-      <rect width="512" height="512" fill="white" />
-      <!-- Cut out space for magnifying glass circle -->
-      <circle cx="295" cy="275" r="105" fill="black" />
-    </mask>
-  </defs>
-
-  <!-- Browser Window Frame with Mask for Magnifying Glass -->
-  <g mask="url(#browser-mask)">
-    <!-- Main Window Outer Border -->
-    <rect x="24" y="24" width="410" height="340" rx="36" fill="none" stroke="url(#icon-grad)" stroke-width="26" stroke-linejoin="round" />
+  <!-- Browser Window Background Shadow / Container -->
+  <g id="browser-window">
+    <!-- Top Header Bar (Cyan/Blue) -->
+    <path d="M 68 40 C 68 26.7 78.7 16 92 16 L 468 16 C 481.3 16 492 26.7 492 40 L 492 90 L 68 90 Z" fill="#009BCE" />
     
-    <!-- Top Header Separator Line -->
-    <line x1="24" y1="96" x2="434" y2="96" stroke="url(#icon-grad)" stroke-width="24" stroke-linecap="round" />
-    
-    <!-- Window Dots -->
-    <circle cx="64" cy="60" r="12" fill="url(#icon-grad)" />
-    <circle cx="100" cy="60" r="12" fill="url(#icon-grad)" />
-    <circle cx="136" cy="60" r="12" fill="url(#icon-grad)" />
+    <!-- Header Control Buttons -->
+    <circle cx="100" cy="53" r="11" fill="#ED4B46" />
+    <circle cx="132" cy="53" r="11" fill="#F5BC18" />
+    <circle cx="164" cy="53" r="11" fill="#2AC940" />
 
-    <!-- Top Row Blocks -->
-    <rect x="56" y="132" width="200" height="40" rx="12" fill="none" stroke="url(#icon-grad)" stroke-width="20" />
-    <rect x="272" y="132" width="70" height="40" rx="12" fill="none" stroke="url(#icon-grad)" stroke-width="20" />
+    <!-- Browser Body (Light Gray Canvas) -->
+    <path d="M 68 90 L 492 90 L 492 392 C 492 405.3 481.3 416 468 416 L 92 416 C 78.7 416 68 405.3 68 392 Z" fill="#EAECEE" />
 
-    <!-- Text Lines -->
-    <line x1="56" y1="216" x2="210" y2="216" stroke="url(#icon-grad)" stroke-width="22" stroke-linecap="round" />
-    <line x1="56" y1="268" x2="190" y2="268" stroke="url(#icon-grad)" stroke-width="22" stroke-linecap="round" />
-    <line x1="56" y1="320" x2="170" y2="320" stroke="url(#icon-grad)" stroke-width="22" stroke-linecap="round" />
+    <!-- Horizontal Content Bars inside Browser Body -->
+    <rect x="100" y="122" width="360" height="18" rx="9" fill="#B0B5B9" />
+    <rect x="100" y="170" width="360" height="18" rx="9" fill="#B0B5B9" />
+    <rect x="100" y="218" width="360" height="18" rx="9" fill="#B0B5B9" />
+    <rect x="100" y="266" width="360" height="18" rx="9" fill="#B0B5B9" />
+    <rect x="100" y="314" width="360" height="18" rx="9" fill="#B0B5B9" />
+    <rect x="100" y="362" width="360" height="18" rx="9" fill="#B0B5B9" />
   </g>
 
-  <!-- Magnifying Glass Circle -->
-  <circle cx="295" cy="275" r="92" fill="none" stroke="url(#icon-grad)" stroke-width="28" />
+  <!-- Magnifying Glass Group -->
+  <g id="magnifying-glass">
+    <!-- Handle Grip (Red Pill) -->
+    <line x1="102" y1="370" x2="32" y2="440" stroke="#EC3F3F" stroke-width="44" stroke-linecap="round" />
 
-  <!-- Magnifying Glass Handle -->
-  <path d="M 360 340 L 452 432 C 462 442 462 458 452 468 C 442 478 426 478 416 468 L 324 376 Z" 
-        fill="none" 
-        stroke="url(#icon-grad)" 
-        stroke-width="24" 
-        stroke-linejoin="round" 
-        stroke-linecap="round" />
+    <!-- Handle Neck (Silver / Light Gray Metal Connector) -->
+    <line x1="126" y1="346" x2="106" y2="366" stroke="#D0D3D7" stroke-width="22" stroke-linecap="square" />
+
+    <!-- Lens Glass Fill (Sky Blue) -->
+    <circle cx="192" cy="280" r="92" fill="#68B2FF" />
+
+    <!-- Lens Outer Rim (Dark Slate Frame) -->
+    <circle cx="192" cy="280" r="92" fill="none" stroke="#4A4E5A" stroke-width="32" />
+  </g>
 </svg>

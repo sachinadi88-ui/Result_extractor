@@ -300,12 +300,16 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                     <tr
                       key={student.id}
                       onClick={() => onSelectStudent(student)}
-                      className={`hover:bg-slate-50/80 transition-colors cursor-pointer group ${!isPass ? 'bg-amber-50/20' : ''}`}
+                      className={`transition-all duration-150 cursor-pointer group ${
+                        !isPass
+                          ? 'bg-amber-50/30 hover:bg-amber-300/80 border-b border-amber-200/60'
+                          : 'hover:bg-emerald-300/70 border-b border-slate-100'
+                      }`}
                     >
                       {/* USN Column */}
                       <td className="px-4 py-4 align-top font-mono font-bold text-slate-900 whitespace-nowrap">
                         <div className="flex items-center space-x-1.5">
-                          <span className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className="px-2 py-1 rounded bg-emerald-50 group-hover:bg-white text-emerald-700 border border-emerald-200 transition-colors">
                             {student.usn || 'N/A'}
                           </span>
                           <button
@@ -324,7 +328,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
 
                       {/* Student Name Column */}
                       <td className="px-4 py-4 align-top font-semibold text-slate-900">
-                        <div className="text-sm font-bold text-slate-800">{student.name}</div>
+                        <div className="text-sm font-bold text-slate-900 group-hover:text-emerald-950 transition-colors">{student.name}</div>
                         {student.college && (
                           <div className="text-[11px] text-slate-500 mt-0.5 font-normal truncate max-w-[180px]">
                             {student.college}
@@ -348,10 +352,10 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                               return (
                                 <div
                                   key={idx}
-                                  className={`inline-flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 px-2.5 py-1.5 rounded-lg text-xs border ${
+                                  className={`inline-flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 px-2.5 py-1.5 rounded-lg text-xs border transition-all duration-150 group-hover:scale-[1.01] ${
                                     subPass
-                                      ? 'bg-slate-50 border-slate-200 text-slate-800'
-                                      : 'bg-red-50/70 border-red-200 text-red-900'
+                                      ? 'bg-white border-slate-200 text-slate-800 group-hover:border-emerald-300 group-hover:shadow-xs'
+                                      : 'bg-red-50 border-red-200 text-red-900 group-hover:bg-red-100 group-hover:border-red-300'
                                   }`}
                                 >
                                   <span className="font-bold text-slate-900">
@@ -485,35 +489,47 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                     <tr
                       key={student.id}
                       onClick={() => onSelectStudent(student)}
-                      className="group hover:bg-slate-50 transition-colors cursor-pointer"
+                      className={`group cursor-pointer transition-all duration-150 ${
+                        !isPass
+                          ? 'bg-amber-50/30 hover:bg-amber-300/80 border-b border-amber-200/60'
+                          : 'hover:bg-emerald-300/70 border-b border-slate-100'
+                      }`}
                     >
-                      <td className="px-1 py-1.5 w-[38px] min-w-[38px] max-w-[38px] text-center sticky left-0 z-10 bg-white group-hover:bg-slate-50 font-mono text-slate-500 text-[11px] font-semibold border-r border-slate-200/80 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] truncate">
+                      <td className={`px-1 py-1.5 w-[38px] min-w-[38px] max-w-[38px] text-center sticky left-0 z-10 font-mono text-slate-500 text-[11px] font-semibold border-r border-slate-200/80 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] truncate transition-colors ${
+                        !isPass ? 'bg-amber-50/40 group-hover:bg-amber-300/90' : 'bg-white group-hover:bg-emerald-300/80'
+                      }`}>
                         {index + 1}
                       </td>
-                      <td className="px-1.5 py-1.5 w-[90px] min-w-[90px] max-w-[90px] sticky left-[38px] z-10 bg-white group-hover:bg-slate-50 font-mono font-bold text-emerald-600 text-[13px] border-r border-slate-200/80 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] truncate">
+                      <td className={`px-1.5 py-1.5 w-[90px] min-w-[90px] max-w-[90px] sticky left-[38px] z-10 font-mono font-bold text-emerald-800 text-[13px] border-r border-slate-200/80 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] truncate transition-colors ${
+                        !isPass ? 'bg-amber-50/40 group-hover:bg-amber-300/90' : 'bg-white group-hover:bg-emerald-300/80'
+                      }`}>
                         {student.usn}
                       </td>
-                      <td className="px-2 py-1.5 w-[150px] min-w-[150px] max-w-[150px] sticky left-[128px] z-10 bg-white group-hover:bg-slate-50 font-semibold text-slate-800 text-[12px] border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] whitespace-normal break-words leading-tight">
+                      <td className={`px-2 py-1.5 w-[150px] min-w-[150px] max-w-[150px] sticky left-[128px] z-10 font-semibold text-slate-900 text-[12px] border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] whitespace-normal break-words leading-tight transition-colors ${
+                        !isPass ? 'bg-amber-50/40 group-hover:bg-amber-300/90' : 'bg-white group-hover:bg-emerald-300/80'
+                      }`}>
                         {student.name}
                       </td>
                       {Array.from({ length: maxSubjects }).map((_, i) => {
                         const sub = student.subjects?.[i];
                         if (!sub) {
-                          return <td key={i} className="px-3 py-1.5 text-slate-400 text-[10px] italic">-</td>;
+                          return <td key={i} className="px-3 py-1.5 text-slate-400 text-[10px] italic border-r border-slate-100/60">-</td>;
                         }
                         const pass = isSubjectPass(sub);
                         return (
-                          <td key={i} className="px-3 py-1.5">
-                            <div className="font-medium text-slate-800 text-[11px] truncate max-w-[160px] leading-tight" title={sub.subjectName}>
-                              {sub.subjectCode ? `${sub.subjectCode} ` : ''}{sub.subjectName}
-                            </div>
-                            {(sub.internalMarks || sub.externalMarks || sub.totalMarks) && (
-                              <div className="text-[10px] text-slate-500 font-mono leading-tight mt-0.5">
-                                Int: {sub.internalMarks || '-'} | Ext: {sub.externalMarks || '-'} | Tot: <strong className="text-slate-800">{sub.totalMarks || '-'}</strong>
+                          <td key={i} className="px-2 py-1.5 border-r border-slate-100/80">
+                            <div className="p-1.5 rounded-lg border border-transparent transition-all duration-150 group-hover:bg-white group-hover:border-slate-200 group-hover:shadow-2xs">
+                              <div className="font-bold text-slate-900 text-[11px] truncate max-w-[160px] leading-tight" title={sub.subjectName}>
+                                {sub.subjectCode ? `${sub.subjectCode} ` : ''}{sub.subjectName}
                               </div>
-                            )}
-                            <div className={`font-bold text-[10px] leading-tight mt-0.5 ${pass ? 'text-emerald-600' : 'text-red-600'}`}>
-                              Result: {sub.result}
+                              {(sub.internalMarks || sub.externalMarks || sub.totalMarks) && (
+                                <div className="text-[10px] text-slate-600 font-mono leading-tight mt-0.5">
+                                  Int: <span className="font-semibold">{sub.internalMarks || '-'}</span> | Ext: <span className="font-semibold">{sub.externalMarks || '-'}</span> | Tot: <strong className="text-slate-900 font-bold">{sub.totalMarks || '-'}</strong>
+                                </div>
+                              )}
+                              <div className={`font-bold text-[10px] leading-tight mt-0.5 ${pass ? 'text-emerald-700' : 'text-red-700 font-black'}`}>
+                                Result: {sub.result}
+                              </div>
                             </div>
                           </td>
                         );

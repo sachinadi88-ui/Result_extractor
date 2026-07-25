@@ -1,6 +1,7 @@
 import React from 'react';
 import { FileSpreadsheet, Upload, Clipboard, Download, Trash2, GraduationCap, LogOut, ShieldCheck, Database, Save } from 'lucide-react';
 import { StudentRecord, AuthUser } from '../types';
+import { isStudentPass } from '../utils/statusHelper';
 
 interface HeaderProps {
   records: StudentRecord[];
@@ -25,10 +26,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const totalStudents = records.length;
   const totalSubjects = records.reduce((acc, r) => acc + (r.subjects ? r.subjects.length : 0), 0);
-  const passCount = records.filter(r => 
-    r.status?.toUpperCase().includes('PASS') || 
-    (r.subjects && r.subjects.every(s => !(s.result || '').toUpperCase().includes('FAIL')))
-  ).length;
+  const passCount = records.filter(r => isStudentPass(r)).length;
   const passPercentage = totalStudents > 0 ? Math.round((passCount / totalStudents) * 100) : 0;
 
   return (
