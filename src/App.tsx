@@ -198,6 +198,7 @@ export default function App() {
       <UploadModal
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
+        onExtractionSuccess={handleExtractionSuccess}
         onSuccess={handleExtractionSuccess}
       />
 

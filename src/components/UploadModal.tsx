@@ -16,13 +16,15 @@ export interface ImageUploadItem {
 interface UploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onExtractionSuccess: (records: Omit<StudentRecord, 'id' | 'uploadedAt'>[], imageBase64: string) => void;
+  onExtractionSuccess?: (records: Omit<StudentRecord, 'id' | 'uploadedAt'>[], imageBase64: string) => void;
+  onSuccess?: (records: Omit<StudentRecord, 'id' | 'uploadedAt'>[], imageBase64: string) => void;
 }
 
 export const UploadModal: React.FC<UploadModalProps> = ({
   isOpen,
   onClose,
   onExtractionSuccess,
+  onSuccess,
 }) => {
   const [items, setItems] = useState<ImageUploadItem[]>([]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -213,7 +215,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({
         );
 
         // Notify parent app of new extracted records
-        onExtractionSuccess(data.students, item.imageBase64);
+        const handleSuccessCallback = onExtractionSuccess || onSuccess;
+        if (typeof handleSuccessCallback === 'function') {
+          handleSuccessCallback(data.students, item.imageBase64);
+        }
       } catch (err: any) {
         console.error(`Error processing image ${item.fileName}:`, err);
         failCount++;
