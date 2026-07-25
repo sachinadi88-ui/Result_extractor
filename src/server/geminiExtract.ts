@@ -57,18 +57,13 @@ Carefully extract:
 8. All Subjects listed in the table or columns:
    - Subject code (e.g. 21CS51)
    - Subject name (e.g. Software Engineering)
-   - Internal Marks (Internal / IA / CIE / Continuous Evaluation marks)
-   - External Marks (External / SEE / EA / Semester Exam / Theory Exam marks)
-   - Total Marks (Total / Combined Marks / Max Marks)
+   - Internal Marks (often labeled as INT, CIE, IA, Internal, CIE Marks, IA Marks).
+   - External Marks (often labeled as EXT, SEE, EA, External, SEE Marks, Semester End Exam, Ext, Theory, S.E., E.E., EA Marks). Make sure to extract these values and populate the externalMarks field properly.
+   - Total Marks (often labeled as TOT, TOTAL, Total Marks, Combined, Max, or obt).
    - Result / Grade (e.g. PASS, FAIL, S, A+, 85, P, F)
    - Grade letter and credits if visible.
 
-For each subject, you MUST extract the 'External Marks' (also known as Semester End Exam (SEE) marks, External assessment (EA) marks, University Exam marks, or Theory Exam marks) and map them to the 'externalMarks' property in the JSON schema. Never combine 'internalMarks' and 'externalMarks' or omit 'externalMarks' if it is present on the card.
-Ensure high accuracy in mapping:
-- CIE / IA / CIE-Marks / Internal Marks -> 'internalMarks'
-- SEE / Exam Marks / Univ Exam / External Marks -> 'externalMarks'
-- Total Marks / Total -> 'totalMarks'
-If multiple students are shown, extract each student separately.`,
+Ensure high accuracy in capturing Internal, External, and Total marks columns. Look closely at columns labeled EXT or SEE for the External marks. If multiple students are shown, extract each student separately.`,
             },
           ],
         },
@@ -97,16 +92,22 @@ If multiple students are shown, extract each student separately.`,
                       items: {
                         type: Type.OBJECT,
                         properties: {
-                          subjectCode: { type: Type.STRING, description: "Subject code (e.g. 21CS51)" },
+                          subjectCode: { type: Type.STRING, description: "Subject code" },
                           subjectName: { type: Type.STRING, description: "Subject full name" },
-                          result: { type: Type.STRING, description: "Subject outcome/status (e.g. PASS, FAIL, S, A, B, etc.). If not explicitly present, infer PASS or FAIL from marks or set to empty string." },
-                          internalMarks: { type: Type.STRING, description: "Internal evaluation marks (IA / CIE / CIE-Marks / Continuous Evaluation marks / Midterm / Class test)" },
-                          externalMarks: { type: Type.STRING, description: "External semester-end exam marks (SEE / EA / Semester Exam / Univ Exam / Theory / Practical)" },
-                          totalMarks: { type: Type.STRING, description: "Total marks (sum of internal and external marks, or total subject score)" },
+                          result: { type: Type.STRING, description: "Result or grade from next column" },
+                          internalMarks: { 
+                            type: Type.STRING, 
+                            description: "Internal assessment marks (Continuous Internal Evaluation / CIE / IA / Int / IA Marks / Internal / CIE Marks)" 
+                          },
+                          externalMarks: { 
+                            type: Type.STRING, 
+                            description: "External exam marks (Semester End Examination / SEE / EA / Ext / EXT / SEE Marks / External Assessment / Theory / Written / End Sem / EA Marks)" 
+                          },
+                          totalMarks: { type: Type.STRING, description: "Total marks" },
                           grade: { type: Type.STRING, description: "Grade letter" },
                           credits: { type: Type.STRING, description: "Credits" },
                         },
-                        required: ["subjectName"],
+                        required: ["subjectName", "result"],
                       },
                     },
                   },
@@ -144,9 +145,40 @@ If multiple students are shown, extract each student separately.`,
   const jsonText = response.text || "{}";
   const parsedData = JSON.parse(jsonText);
 
+  // Safe post-processing to align any variations in keys with our TypeScript interface (SubjectResult)
+  const students = (parsedData.students || []).map((student: any) => {
+    if (student.subjects && Array.isArray(student.subjects)) {
+      student.subjects = student.subjects.map((sub: any) => {
+        // Unify external marks variations
+        const extVal = sub.externalMarks || sub.ext || sub.external || sub.see || sub.ea || sub.external_marks || sub.extMarks;
+        // Unify internal marks variations
+        const intVal = sub.internalMarks || sub.int || sub.internal || sub.cie || sub.ia || sub.internal_marks || sub.intMarks;
+        // Unify total marks variations
+        const totVal = sub.totalMarks || sub.total || sub.tot || sub.total_marks || sub.totMarks;
+        // Unify subject code variations
+        const subCode = sub.subjectCode || sub.code || sub.subCode || sub.subject_code;
+        // Unify subject name variations
+        const subName = sub.subjectName || sub.name || sub.subName || sub.subject_name;
+        // Unify result / grade variations
+        const resVal = sub.result || sub.grade || sub.remarks || sub.status;
+
+        return {
+          ...sub,
+          subjectCode: subCode ? String(subCode).trim() : sub.subjectCode,
+          subjectName: subName ? String(subName).trim() : sub.subjectName,
+          externalMarks: extVal !== undefined && extVal !== null ? String(extVal).trim() : sub.externalMarks,
+          internalMarks: intVal !== undefined && intVal !== null ? String(intVal).trim() : sub.internalMarks,
+          totalMarks: totVal !== undefined && totVal !== null ? String(totVal).trim() : sub.totalMarks,
+          result: resVal !== undefined && resVal !== null ? String(resVal).trim() : sub.result,
+        };
+      });
+    }
+    return student;
+  });
+
   return {
     success: true,
-    students: parsedData.students || [],
+    students: students,
     rawText: jsonText,
   };
 }

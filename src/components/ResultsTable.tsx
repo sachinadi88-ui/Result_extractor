@@ -58,8 +58,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
       rec.college?.toLowerCase().includes(query) ||
       rec.subjects?.some(
         (s) =>
-          s.subjectName.toLowerCase().includes(query) ||
-          s.subjectCode?.toLowerCase().includes(query) ||
+          (s.subjectName || '').toLowerCase().includes(query) ||
+          (s.subjectCode || '').toLowerCase().includes(query) ||
           (s.result || '').toLowerCase().includes(query)
       );
 

@@ -25,7 +25,10 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const totalStudents = records.length;
   const totalSubjects = records.reduce((acc, r) => acc + (r.subjects ? r.subjects.length : 0), 0);
-  const passCount = records.filter(r => r.status?.toUpperCase().includes('PASS') || r.subjects.every(s => !(s.result || '').toUpperCase().includes('FAIL'))).length;
+  const passCount = records.filter(r => 
+    r.status?.toUpperCase().includes('PASS') || 
+    (r.subjects && r.subjects.every(s => !(s.result || '').toUpperCase().includes('FAIL')))
+  ).length;
   const passPercentage = totalStudents > 0 ? Math.round((passCount / totalStudents) * 100) : 0;
 
   return (
