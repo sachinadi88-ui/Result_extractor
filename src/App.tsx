@@ -6,6 +6,7 @@ import { StudentDetailModal } from './components/StudentDetailModal';
 import { LoginPage } from './components/LoginPage';
 import { StudentRecord, AuthUser } from './types';
 import { getStoredStudentRecords, saveStudentRecords, exportToCsv } from './utils/storage';
+import { compressBase64Image } from './utils/imageCompress';
 import {
   saveRecordToFirestore,
   saveMultipleRecordsToFirestore,
@@ -96,17 +97,26 @@ export default function App() {
     showToast('Successfully signed out.');
   };
 
-  const handleExtractionSuccess = (
+  const handleExtractionSuccess = async (
     newStudents: Omit<StudentRecord, 'id' | 'uploadedAt'>[],
     imageBase64: string
   ) => {
     if (!currentUser) return;
 
+    // Compress the image down significantly (thumbnail) to save storage space
+    // and keep local storage & database within free-tier limits
+    let tinyImage = imageBase64;
+    try {
+      tinyImage = await compressBase64Image(imageBase64, 800, 0.45);
+    } catch (e) {
+      console.warn('Failed to downscale base64 image:', e);
+    }
+
     const createdRecords: StudentRecord[] = newStudents.map((s, idx) => ({
       ...s,
       id: `rec-${Date.now()}-${idx}`,
       uploadedAt: new Date().toISOString(),
-      imageUrl: imageBase64,
+      imageUrl: tinyImage,
     }));
 
     // Update React state

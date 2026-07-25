@@ -78,12 +78,17 @@ Carefully extract:
    - Subject code (e.g. 21CS51)
    - Subject name (e.g. Software Engineering)
    - Internal Marks (Internal / IA / CIE / Continuous Evaluation marks)
-   - External Marks (External / SEE / EA / Semester Exam marks)
+   - External Marks (External / SEE / EA / Semester Exam / Theory Exam marks)
    - Total Marks (Total / Combined Marks / Max Marks)
    - Result / Grade (e.g. PASS, FAIL, S, A+, 85, P, F)
    - Grade letter and credits if visible.
 
-Ensure high accuracy in capturing Internal, External, and Total marks columns. If multiple students are shown, extract each student separately.`,
+For each subject, you MUST extract the 'External Marks' (also known as Semester End Exam (SEE) marks, External assessment (EA) marks, University Exam marks, or Theory Exam marks) and map them to the 'externalMarks' property in the JSON schema. Never combine 'internalMarks' and 'externalMarks' or omit 'externalMarks' if it is present on the card.
+Ensure high accuracy in mapping:
+- CIE / IA / CIE-Marks / Internal Marks -> 'internalMarks'
+- SEE / Exam Marks / Univ Exam / External Marks -> 'externalMarks'
+- Total Marks / Total -> 'totalMarks'
+If multiple students are shown, extract each student separately.`,
               },
             ],
           },
@@ -112,16 +117,16 @@ Ensure high accuracy in capturing Internal, External, and Total marks columns. I
                         items: {
                           type: Type.OBJECT,
                           properties: {
-                            subjectCode: { type: Type.STRING, description: "Subject code" },
+                            subjectCode: { type: Type.STRING, description: "Subject code (e.g. 21CS51)" },
                             subjectName: { type: Type.STRING, description: "Subject full name" },
-                            result: { type: Type.STRING, description: "Result or grade from next column" },
-                            internalMarks: { type: Type.STRING, description: "Internal marks" },
-                            externalMarks: { type: Type.STRING, description: "External marks" },
-                            totalMarks: { type: Type.STRING, description: "Total marks" },
+                            result: { type: Type.STRING, description: "Subject outcome/status (e.g. PASS, FAIL, S, A, B, etc.). If not explicitly present, infer PASS or FAIL from marks or set to empty string." },
+                            internalMarks: { type: Type.STRING, description: "Internal evaluation marks (IA / CIE / CIE-Marks / Continuous Evaluation marks / Midterm / Class test)" },
+                            externalMarks: { type: Type.STRING, description: "External semester-end exam marks (SEE / EA / Semester Exam / Univ Exam / Theory / Practical)" },
+                            totalMarks: { type: Type.STRING, description: "Total marks (sum of internal and external marks, or total subject score)" },
                             grade: { type: Type.STRING, description: "Grade letter" },
                             credits: { type: Type.STRING, description: "Credits" },
                           },
-                          required: ["subjectName", "result"],
+                          required: ["subjectName"],
                         },
                       },
                     },
