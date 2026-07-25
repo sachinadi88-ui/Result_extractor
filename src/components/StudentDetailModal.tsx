@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, Trash2, Plus, Edit2, FileText, CheckCircle2, XCircle, Eye, ChevronRight, Sparkles, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
 import { StudentRecord, SubjectResult } from '../types';
 import { isStudentPass, getEffectiveStatus } from '../utils/statusHelper';
+import { DeleteConfirmModal } from './DeleteConfirmModal';
 
 interface StudentDetailModalProps {
   student: StudentRecord | null;
@@ -22,6 +23,8 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   const [showOriginalImage, setShowOriginalImage] = useState<boolean>(true);
   const [isReanalyzing, setIsReanalyzing] = useState<boolean>(false);
   const [reanalyzeStatus, setReanalyzeStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [showRecordDeleteConfirm, setShowRecordDeleteConfirm] = useState<boolean>(false);
+  const [subjectToDeleteIndex, setSubjectToDeleteIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (student) {
@@ -497,7 +500,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                           <td className="px-3 py-2 text-center">
                             <button
                               type="button"
-                              onClick={() => handleRemoveSubject(idx)}
+                              onClick={() => setSubjectToDeleteIndex(idx)}
                               className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                               title="Delete row"
                             >
@@ -519,12 +522,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
           <div className="flex items-center justify-between pt-4 border-t border-slate-100">
             <button
               type="button"
-              onClick={() => {
-                if (confirm('Are you sure you want to delete this student record?')) {
-                  onDelete(formData.id);
-                  onClose();
-                }
-              }}
+              onClick={() => setShowRecordDeleteConfirm(true)}
               className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold border border-red-200 transition-colors cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -552,6 +550,38 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
         </form>
 
       </div>
+
+      {/* Delete Confirmation Modal for Student Record */}
+      <DeleteConfirmModal
+        isOpen={showRecordDeleteConfirm}
+        title="Delete Student Record?"
+        studentName={formData.name}
+        usn={formData.usn}
+        onConfirm={() => {
+          onDelete(formData.id);
+          setShowRecordDeleteConfirm(false);
+          onClose();
+        }}
+        onCancel={() => setShowRecordDeleteConfirm(false)}
+      />
+
+      {/* Delete Confirmation Modal for Subject Row */}
+      <DeleteConfirmModal
+        isOpen={subjectToDeleteIndex !== null}
+        title="Remove Subject?"
+        message={
+          subjectToDeleteIndex !== null && formData.subjects[subjectToDeleteIndex]
+            ? `Are you sure you want to remove subject "${formData.subjects[subjectToDeleteIndex].subjectName || formData.subjects[subjectToDeleteIndex].subjectCode || 'this subject'}" from this student's record?`
+            : "Are you sure you want to remove this subject?"
+        }
+        onConfirm={() => {
+          if (subjectToDeleteIndex !== null) {
+            handleRemoveSubject(subjectToDeleteIndex);
+            setSubjectToDeleteIndex(null);
+          }
+        }}
+        onCancel={() => setSubjectToDeleteIndex(null)}
+      />
     </div>
   );
 };

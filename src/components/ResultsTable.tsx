@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { StudentRecord, SubjectResult } from '../types';
 import { isSubjectPass, isStudentPass, getEffectiveStatus } from '../utils/statusHelper';
+import { DeleteConfirmModal } from './DeleteConfirmModal';
 
 interface ResultsTableProps {
   records: StudentRecord[];
@@ -41,6 +42,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   const [copiedUsn, setCopiedUsn] = useState<string | null>(null);
   const [sortField, setSortField] = useState<'usn' | 'name' | 'uploadedAt'>('usn');
   const [sortAsc, setSortAsc] = useState<boolean>(true);
+  const [deletingStudent, setDeletingStudent] = useState<StudentRecord | null>(null);
 
   const handleCopyUsn = (usn: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -418,7 +420,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => onDeleteStudent(student.id)}
+                            onClick={() => setDeletingStudent(student)}
                             className="p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                             title="Delete record"
                           >
@@ -531,7 +533,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             <Edit className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => onDeleteStudent(student.id)}
+                            onClick={() => setDeletingStudent(student)}
                             className="p-1 rounded-lg bg-slate-100 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                             title="Delete row"
                           >
@@ -632,7 +634,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                       <span>Edit</span>
                     </button>
                     <button
-                      onClick={() => onDeleteStudent(student.id)}
+                      onClick={() => setDeletingStudent(student)}
                       className="p-1.5 rounded-md bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
                       title="Delete student record"
                     >
@@ -645,6 +647,19 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
           })}
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={!!deletingStudent}
+        studentName={deletingStudent?.name}
+        usn={deletingStudent?.usn}
+        onConfirm={() => {
+          if (deletingStudent) {
+            onDeleteStudent(deletingStudent.id);
+            setDeletingStudent(null);
+          }
+        }}
+        onCancel={() => setDeletingStudent(null)}
+      />
 
     </div>
   );
