@@ -1,10 +1,11 @@
 import { StudentRecord } from '../types';
 
-const STORAGE_KEY = 'student_results_extracted_v1';
+const BASE_STORAGE_KEY = 'student_results_extracted_v1';
 
-export function getStoredStudentRecords(): StudentRecord[] {
+export function getStoredStudentRecords(userId: string = 'guest'): StudentRecord[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const key = `${BASE_STORAGE_KEY}_${userId}`;
+    const raw = localStorage.getItem(key);
     if (!raw) return [];
     return JSON.parse(raw);
   } catch (e) {
@@ -13,9 +14,10 @@ export function getStoredStudentRecords(): StudentRecord[] {
   }
 }
 
-export function saveStudentRecords(records: StudentRecord[]): void {
+export function saveStudentRecords(records: StudentRecord[], userId: string = 'guest'): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    const key = `${BASE_STORAGE_KEY}_${userId}`;
+    localStorage.setItem(key, JSON.stringify(records));
   } catch (e) {
     console.error('Error saving records:', e);
   }

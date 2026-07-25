@@ -1,3 +1,10 @@
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  picture: string;
+}
+
 export interface SubjectResult {
   subjectCode?: string;
   subjectName: string;

@@ -3,13 +3,28 @@ import { Header } from './components/Header';
 import { ResultsTable } from './components/ResultsTable';
 import { UploadModal } from './components/UploadModal';
 import { StudentDetailModal } from './components/StudentDetailModal';
-import { StudentRecord } from './types';
+import { LoginPage } from './components/LoginPage';
+import { StudentRecord, AuthUser } from './types';
 import { getStoredStudentRecords, saveStudentRecords, exportToCsv } from './utils/storage';
-import { CheckCircle2, FileSpreadsheet, Plus, AlertCircle, Info } from 'lucide-react';
+import { CheckCircle2, FileSpreadsheet, Plus, ShieldCheck } from 'lucide-react';
+
+const AUTH_STORAGE_KEY = 'vtu_auth_user_session_v1';
 
 export default function App() {
+  // Current Logged In Google User
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
+    try {
+      const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Student Records linked to current user's email
   const [records, setRecords] = useState<StudentRecord[]>(() => {
-    const stored = getStoredStudentRecords();
+    if (!currentUser) return [];
+    const stored = getStoredStudentRecords(currentUser.email);
     return stored.filter((r) => !r.id.startsWith('sample-'));
   });
 
@@ -18,87 +33,139 @@ export default function App() {
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Sync session & load user records when currentUser changes
   useEffect(() => {
-    saveStudentRecords(records);
-  }, [records]);
+    if (currentUser) {
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(currentUser));
+      const stored = getStoredStudentRecords(currentUser.email);
+      setRecords(stored.filter((r) => !r.id.startsWith('sample-')));
+    } else {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      setRecords([]);
+    }
+  }, [currentUser]);
+
+  // Save records under logged-in user's email
+  useEffect(() => {
+    if (currentUser) {
+      saveStudentRecords(records, currentUser.email);
+    }
+  }, [records, currentUser]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4000);
+  };
+
+  const handleLogin = (user: AuthUser) => {
+    setCurrentUser(user);
+    showToast(`Welcome back, ${user.name}! Logged in as ${user.email}`);
+  };
+
+  const handleSignOut = () => {
+    setCurrentUser(null);
+    showToast('Successfully signed out.');
   };
 
   const handleExtractionSuccess = (
     newStudents: Omit<StudentRecord, 'id' | 'uploadedAt'>[],
     imageBase64: string
   ) => {
-    const timestamp = new Date().toISOString();
-    const createdRecords: StudentRecord[] = newStudents.map((st, i) => ({
-      ...st,
-      id: `student-${Date.now()}-${i}`,
-      uploadedAt: timestamp,
+    if (!currentUser) return;
+
+    const createdRecords: StudentRecord[] = newStudents.map((s, idx) => ({
+      ...s,
+      id: `rec-${Date.now()}-${idx}`,
+      uploadedAt: new Date().toISOString(),
       imageUrl: imageBase64,
     }));
 
     setRecords((prev) => [...createdRecords, ...prev]);
-    showToast(`Successfully extracted ${createdRecords.length} student result(s)!`);
+    showToast(`Successfully extracted ${createdRecords.length} student result(s) for ${currentUser.name}!`);
   };
 
   const handleSaveStudent = (updated: StudentRecord) => {
     setRecords((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-    showToast(`Updated record for ${updated.name} (${updated.usn})`);
+    if (selectedStudent && selectedStudent.id === updated.id) {
+      setSelectedStudent(updated);
+    }
+    showToast('Student record updated successfully.');
   };
 
   const handleDeleteStudent = (id: string) => {
-    setRecords((prev) => prev.filter((r) => r.id !== id));
-    showToast('Record deleted.');
+    if (confirm('Are you sure you want to delete this student record?')) {
+      setRecords((prev) => prev.filter((r) => r.id !== id));
+      if (selectedStudent && selectedStudent.id === id) {
+        setIsDetailOpen(false);
+        setSelectedStudent(null);
+      }
+      showToast('Student record deleted.');
+    }
+  };
+
+  const handleClearAll = () => {
+    if (!currentUser) return;
+    if (confirm(`Are you sure you want to clear all student records for ${currentUser.name}?`)) {
+      setRecords([]);
+      showToast('All student records cleared.');
+    }
   };
 
   const handleExportCsv = () => {
     exportToCsv(records);
-    showToast('Exported results table to CSV.');
+    showToast('Exporting student results to CSV format...');
   };
 
-  const handleClearAll = () => {
-    if (confirm('Are you sure you want to clear all student result records?')) {
-      setRecords([]);
-      showToast('All records cleared.');
-    }
-  };
+  // IF NOT LOGGED IN: Render Simple Google Login Page
+  if (!currentUser) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
 
+  // IF LOGGED IN: Render Full Extraction Dashboard
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans antialiased">
       
-      {/* Top Header */}
+      {/* Top Header with User Profile Photo & Name */}
       <Header
         records={records}
+        currentUser={currentUser}
         onOpenUpload={() => setIsUploadOpen(true)}
         onPasteClipboard={() => setIsUploadOpen(true)}
         onExportCsv={handleExportCsv}
         onClearAll={handleClearAll}
+        onSignOut={handleSignOut}
       />
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
-        {/* Info Banner */}
-        <div className="mb-6 p-4 rounded-xl bg-white border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+        {/* Info & Account Isolation Status Banner */}
+        <div className="mb-6 p-4 rounded-xl bg-white border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
           <div className="flex items-center space-x-3 text-xs text-slate-700">
-            <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0">
-              <Info className="w-4 h-4" />
-            </div>
+            <img
+              src={currentUser.picture}
+              alt={currentUser.name}
+              className="w-10 h-10 rounded-full object-cover border border-emerald-500 shrink-0"
+            />
             <div>
-              <p className="font-bold text-slate-900">
-                Automatic Screenshot Result Extraction &amp; Tabular Display
+              <p className="font-bold text-slate-900 flex items-center gap-1.5">
+                <span>Logged in as:</span>
+                <span className="text-emerald-700 font-semibold">{currentUser.name}</span>
+                <span className="font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200 text-[11px]">
+                  {currentUser.email}
+                </span>
               </p>
               <p className="text-slate-500 mt-0.5">
-                Upload any university mark sheet screenshot. The AI extracts <strong className="text-slate-800">USN</strong>, <strong className="text-slate-800">Name</strong>, <strong className="text-slate-800">Subjects</strong>, <strong className="text-slate-800">Internal Marks</strong>, <strong className="text-slate-800">External Marks</strong>, <strong className="text-slate-800">Total Marks</strong>, and <strong className="text-slate-800">Results</strong> into a consolidated row.
+                Upload university mark sheet screenshots. AI extracts <strong className="text-slate-800">USN</strong>, <strong className="text-slate-800">Name</strong>, <strong className="text-slate-800">Subjects</strong>, <strong className="text-slate-800">Marks</strong>, and <strong className="text-slate-800">Results</strong> into structured rows tied to your account.
               </p>
             </div>
           </div>
 
           <button
             onClick={() => setIsUploadOpen(true)}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shrink-0 transition-colors shadow-sm cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shrink-0 transition-colors shadow-xs cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Add Screenshot</span>
@@ -120,28 +187,28 @@ export default function App() {
 
       {/* Footer bar */}
       <footer className="h-8 bg-slate-900 flex items-center justify-between px-6 text-[10px] text-slate-400 font-medium tracking-tight mt-auto">
-        <span>RESULT EXTRACTOR AI • PROFESSIONAL OCR ENGINE</span>
+        <span>RESULT EXTRACTOR AI • GOOGLE SIGNED-IN SESSION</span>
         <div className="flex items-center space-x-2">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>OCR ENGINE ACTIVE</span>
+          <span>ACTIVE USER: {currentUser.email}</span>
         </div>
       </footer>
 
-      {/* Upload Screenshot Modal */}
+      {/* Screenshot Extraction Upload Modal */}
       <UploadModal
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
-        onExtractionSuccess={handleExtractionSuccess}
+        onSuccess={handleExtractionSuccess}
       />
 
-      {/* Edit/Inspect Student Modal */}
+      {/* Student Record Detail / Edit Modal */}
       <StudentDetailModal
-        student={selectedStudent}
         isOpen={isDetailOpen}
         onClose={() => {
           setIsDetailOpen(false);
           setSelectedStudent(null);
         }}
+        student={selectedStudent}
         onSave={handleSaveStudent}
         onDelete={handleDeleteStudent}
       />
