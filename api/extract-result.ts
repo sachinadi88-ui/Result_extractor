@@ -48,7 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, "");
 
-    const modelsToTry = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-3.1-flash-lite"];
+    const modelsToTry = ["gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
     let lastError: any = null;
     let response: any = null;
 
@@ -66,24 +66,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               },
               {
                 text: `Analyze this student result / marks card / grade sheet screenshot.
-Carefully extract:
-1. Student USN / Roll Number / Register Number / Enrollment Number.
-2. Student Full Name.
-3. College / Institution Name (if present).
-4. Semester / Term / Year (if present).
-5. Examination Session (e.g., Dec 2023 / Jan 2024, if present).
-6. Overall SGPA / CGPA / Total Marks or Percentage (if present).
-7. Overall Result Status (e.g. PASS, FAIL, PROMOTED, FIRST CLASS, etc.).
-8. All Subjects listed in the table or columns:
-   - Subject code (e.g. 21CS51)
-   - Subject name (e.g. Software Engineering)
-   - Internal Marks (often labeled as INT, CIE, IA, Internal, CIE Marks, IA Marks).
-   - External Marks (often labeled as EXT, SEE, EA, External, SEE Marks, Semester End Exam, Ext, Theory, S.E., E.E., EA Marks). Make sure to extract these values and populate the externalMarks field properly.
-   - Total Marks (often labeled as TOT, TOTAL, Total Marks, Combined, Max, or obt).
-   - Result / Grade (e.g. PASS, FAIL, S, A+, 85, P, F)
-   - Grade letter and credits if visible.
+CRITICAL INSTRUCTION FOR WATERMARKS & EXTERNAL MARKS:
+1. University screenshots (such as VTU) have a large semi-transparent circular watermark or emblem in the background passing through the middle columns (Internal Marks and External Marks).
+2. IGNORE the background watermark seal/graphics and extract the actual printed numbers in the External Marks column.
+3. MATH FORMULA MANDATE: Total Marks = Internal Marks + External Marks. Therefore, External Marks = Total Marks - Internal Marks. If the External Marks column is faint or obscured by the circular emblem watermark, calculate External Marks by subtracting Internal Marks from Total Marks (e.g., if Total is 42 and Internal is 22, External MUST be 20). DO NOT leave External Marks empty or as "-".
 
-Ensure high accuracy in capturing Internal, External, and Total marks columns. Look closely at columns labeled EXT or SEE for the External marks. If multiple students are shown, extract each student separately.`,
+Extract all fields carefully:
+1. Student USN / Roll Number / Register Number (e.g. 3SL23CS039).
+2. Student Full Name (e.g. MOHAMMED GAFFAR AASIM).
+3. College / Institution Name (if present).
+4. Semester / Term (e.g. Semester : 4).
+5. Examination Session / Announced Date (if present).
+6. Overall SGPA / CGPA / Status.
+7. ALL Subjects in the table:
+   - subjectCode (e.g. BCS401, BBOC407)
+   - subjectName (e.g. ANALYSIS & DESIGN OF ALGORITHMS)
+   - internalMarks (as string, e.g. "22")
+   - externalMarks (as string, e.g. "20", "18", "23", "0", "27", "25"). If faint/obscured by background emblem, derive using (Total - Internal)!
+   - totalMarks (as string, e.g. "42")
+   - result (e.g. "P", "F", "A")
+   - grade / credits if present.`,
               },
             ],
           },
@@ -175,13 +177,26 @@ Ensure high accuracy in capturing Internal, External, and Total marks columns. L
           const subName = sub.subjectName || sub.name || sub.subName || sub.subject_name;
           const resVal = sub.result || sub.grade || sub.remarks || sub.status;
 
+          let extMarksStr = extVal !== undefined && extVal !== null ? String(extVal).trim() : '';
+          let intMarksStr = intVal !== undefined && intVal !== null ? String(intVal).trim() : '';
+          let totMarksStr = totVal !== undefined && totVal !== null ? String(totVal).trim() : '';
+
+          // Mathematical deduction fallback: If externalMarks is missing, "-", "N/A", "null", or empty, derive it from Total Marks - Internal Marks
+          if (!extMarksStr || extMarksStr === '-' || extMarksStr === 'N/A' || extMarksStr === 'null') {
+            const totNum = parseInt(totMarksStr, 10);
+            const intNum = parseInt(intMarksStr, 10);
+            if (!isNaN(totNum) && !isNaN(intNum)) {
+              extMarksStr = String(Math.max(0, totNum - intNum));
+            }
+          }
+
           return {
             ...sub,
             subjectCode: subCode ? String(subCode).trim() : sub.subjectCode,
             subjectName: subName ? String(subName).trim() : sub.subjectName,
-            externalMarks: extVal !== undefined && extVal !== null ? String(extVal).trim() : sub.externalMarks,
-            internalMarks: intVal !== undefined && intVal !== null ? String(intVal).trim() : sub.internalMarks,
-            totalMarks: totVal !== undefined && totVal !== null ? String(totVal).trim() : sub.totalMarks,
+            externalMarks: extMarksStr,
+            internalMarks: intMarksStr,
+            totalMarks: totMarksStr,
             result: resVal !== undefined && resVal !== null ? String(resVal).trim() : sub.result,
           };
         });
