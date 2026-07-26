@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileSpreadsheet, Upload, Clipboard, Download, Trash2, GraduationCap, LogOut, ShieldCheck, Database, Save } from 'lucide-react';
+import { FileSpreadsheet, Upload, Download, GraduationCap, LogOut, ShieldCheck, Database, Save } from 'lucide-react';
 import { StudentRecord, AuthUser } from '../types';
 import { isStudentPass } from '../utils/statusHelper';
 
@@ -30,33 +30,52 @@ export const Header: React.FC<HeaderProps> = ({
   const passPercentage = totalStudents > 0 ? Math.round((passCount / totalStudents) * 100) : 0;
 
   return (
-    <header className="bg-white border-b border-slate-200 text-slate-900 sticky top-0 z-30 shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+    <header className="bg-white border-b border-slate-200 text-slate-900 sticky top-0 z-50 shadow-xs">
+      <div className="w-full px-3 sm:px-6 lg:px-8 py-2 sm:py-2.5">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 sm:gap-3">
           
-          {/* Brand & Title */}
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-sm shrink-0">
-              <GraduationCap className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h1 className="text-lg font-bold tracking-tight text-slate-900">
-                  Result<span className="text-emerald-600">Extract</span> <span className="text-slate-500 font-normal text-sm">AI</span>
-                </h1>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Dashboard
-                </span>
+          {/* Top Row on Mobile / Left Section on Desktop */}
+          <div className="flex items-center justify-between w-full lg:w-auto">
+            {/* Brand & Title */}
+            <div className="flex items-center space-x-2.5 shrink-0">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Automated screenshot extraction for student USN, Name, and grades
-              </p>
+              <div>
+                <div className="flex items-center space-x-1.5 sm:space-x-2">
+                  <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900">
+                    Result<span className="text-emerald-600">Extract</span> <span className="text-slate-500 font-normal text-xs sm:text-sm">AI</span>
+                  </h1>
+                  <span className="hidden sm:inline-block text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Dashboard
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* User Account Info on Mobile - Top Right */}
+            <div className="lg:hidden flex items-center space-x-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 shadow-2xs">
+              <img
+                src={currentUser.picture}
+                alt={currentUser.name}
+                className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover border border-slate-300 shrink-0"
+              />
+              <span className="text-[11px] font-bold text-slate-800 max-w-[70px] sm:max-w-[120px] truncate">
+                {currentUser.name}
+              </span>
+              <button
+                onClick={onSignOut}
+                title="Sign Out"
+                className="p-1 rounded text-[#DC2626] hover:bg-red-100/80 transition-colors cursor-pointer shrink-0"
+              >
+                <LogOut className="w-3.5 h-3.5 text-[#DC2626]" />
+              </button>
             </div>
           </div>
 
-          {/* Quick Stats */}
+          {/* Quick Stats - Desktop (XL+) */}
           {totalStudents > 0 && (
-            <div className="hidden lg:flex items-center space-x-5 bg-slate-50 px-3.5 py-1.5 rounded-lg border border-slate-200 text-xs">
+            <div className="hidden xl:flex items-center space-x-5 bg-slate-50 px-3.5 py-1.5 rounded-lg border border-slate-200 text-xs shrink-0">
               <div>
                 <span className="text-slate-500 block text-[11px]">User Records</span>
                 <span className="text-sm font-bold text-slate-900">{totalStudents}</span>
@@ -74,76 +93,70 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           )}
 
-          {/* User Account Info Display & Action Toolbar */}
-          <div className="flex flex-wrap items-center gap-3">
-            
-            {/* Display Logged-In User Profile Photo & Name */}
-            <div className="flex items-center space-x-3 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-              <img
-                src={currentUser.picture}
-                alt={currentUser.name}
-                className="w-8 h-8 rounded-full object-cover border border-slate-300 shrink-0 shadow-xs"
-              />
-              <div className="text-left leading-tight max-w-[150px] sm:max-w-[180px] truncate">
-                <p className="text-xs font-bold text-slate-900 truncate">{currentUser.name}</p>
-                <p className="text-[10px] text-slate-500 truncate font-mono">{currentUser.email}</p>
-              </div>
-              <button
-                onClick={onSignOut}
-                title="Sign Out"
-                className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors ml-1 cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
+          {/* Mobile Quick Stats Bar */}
+          {totalStudents > 0 && (
+            <div className="flex xl:hidden items-center justify-around bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200/80 text-[11px] text-slate-600">
+              <span><strong className="text-slate-900">{totalStudents}</strong> Records</span>
+              <span className="text-slate-300">•</span>
+              <span><strong className="text-emerald-700">{totalSubjects}</strong> Subjects</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-emerald-700 font-bold">{passPercentage}% Pass Rate</span>
             </div>
+          )}
 
+          {/* Action Toolbar & Desktop User Profile */}
+          <div className="flex items-center justify-between lg:justify-end gap-2 shrink-0 w-full lg:w-auto">
+            
             {/* Action Buttons */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5 sm:space-x-2 w-full lg:w-auto">
               <button
                 onClick={onOpenUpload}
-                className="inline-flex items-center space-x-2 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer"
+                className="flex-1 lg:flex-none inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer"
               >
-                <Upload className="w-4 h-4" />
-                <span>Upload Screenshot</span>
-              </button>
-
-              <button
-                onClick={onPasteClipboard}
-                title="Click or press Ctrl+V to extract from clipboard"
-                className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-white hover:bg-slate-100 text-slate-700 text-xs sm:text-sm font-medium border border-slate-200 transition-colors cursor-pointer shadow-xs"
-              >
-                <Clipboard className="w-4 h-4 text-emerald-600" />
-                <span className="hidden sm:inline">Paste</span>
+                <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span>Upload</span>
               </button>
 
               {totalStudents > 0 && (
                 <>
                   <button
                     onClick={onExportCsv}
-                    className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-medium transition-colors shadow-xs cursor-pointer"
+                    className="inline-flex items-center justify-center space-x-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-medium transition-colors shadow-xs cursor-pointer"
                   >
-                    <Download className="w-4 h-4" />
-                    <span className="hidden sm:inline">Export CSV</span>
+                    <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span>Export<span className="hidden sm:inline"> CSV</span></span>
                   </button>
 
                   <button
                     onClick={onSaveToDatabase}
                     title="Save or sync unsaved changes to Firebase database"
-                    className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer"
+                    className="inline-flex items-center justify-center space-x-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer"
                   >
-                    <Save className="w-4 h-4" />
-                    <span className="hidden sm:inline">Save to Database</span>
-                  </button>
-
-                  <button
-                    onClick={onClearAll}
-                    className="p-2 rounded-lg bg-white hover:bg-red-50 text-slate-400 hover:text-red-600 border border-slate-200 transition-colors cursor-pointer shadow-xs"
-                    title="Clear all student records for this user"
-                  >
-                    <Trash2 className="w-4 h-4" />
+                    <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span>Save<span className="hidden sm:inline"> to DB</span></span>
                   </button>
                 </>
               )}
+            </div>
+
+            {/* Display Logged-In User Profile Photo & Name - Desktop (lg+) */}
+            <div className="hidden lg:flex items-center space-x-2 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs shrink-0">
+              <img
+                src={currentUser.picture}
+                alt={currentUser.name}
+                className="w-6 h-6 rounded-full object-cover border border-slate-300 shrink-0"
+              />
+              <div className="text-left leading-tight max-w-[110px] sm:max-w-[140px] truncate">
+                <p className="text-[11px] font-bold text-slate-800 truncate">{currentUser.name}</p>
+                <p className="text-[9px] text-slate-500 truncate font-mono">{currentUser.email}</p>
+              </div>
+              <button
+                onClick={onSignOut}
+                title="Sign Out"
+                className="p-1 rounded-md text-[#DC2626] hover:bg-red-100/80 transition-colors ml-0.5 cursor-pointer shrink-0"
+              >
+                <LogOut className="w-3.5 h-3.5 text-[#DC2626]" />
+              </button>
             </div>
 
           </div>

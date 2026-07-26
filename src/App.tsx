@@ -204,26 +204,29 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
         {/* Info & Account Isolation Status Banner */}
-        <div className="mb-6 p-4 rounded-xl bg-white border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center space-x-3 text-xs text-slate-700">
-            <img
-              src={currentUser.picture}
-              alt={currentUser.name}
-              className="w-10 h-10 rounded-full object-cover border border-emerald-500 shrink-0"
-            />
-            <div>
-              <p className="font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
-                <span>Logged in as:</span>
-                <span className="text-emerald-700 font-semibold">{currentUser.name}</span>
-                <span className="font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200 text-[11px]">
+        <div className="mb-6 p-3.5 sm:p-4 rounded-xl bg-white border border-slate-200 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4 shadow-xs">
+          <div className="flex items-start sm:items-center space-x-3 text-xs text-slate-700 w-full md:w-auto">
+            <div className="hidden sm:flex items-center space-x-3 shrink-0">
+              <img
+                src={currentUser.picture}
+                alt={currentUser.name}
+                className="w-10 h-10 rounded-full object-cover border border-emerald-500 shrink-0"
+              />
+            </div>
+            <div className="space-y-1 min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <span className="hidden sm:inline font-medium text-slate-500">Logged in as:</span>
+                <span className="hidden sm:inline font-bold text-slate-900">{currentUser.name}</span>
+                <span className="hidden sm:inline font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200 text-[11px] truncate max-w-[180px] sm:max-w-none">
                   {currentUser.email}
                 </span>
-                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-[11px] font-medium">
+                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-[11px] font-medium shrink-0">
                   <Database className="w-3 h-3 text-orange-500" />
-                  <span>{isSyncingFirebase ? 'Syncing Firebase...' : 'Firebase Database Active'}</span>
+                  <span className="hidden xs:inline">{isSyncingFirebase ? 'Syncing...' : 'Firebase Active'}</span>
+                  <span className="xs:hidden">{isSyncingFirebase ? 'Sync' : 'Active'}</span>
                 </span>
-              </p>
-              <p className="text-slate-500 mt-0.5">
+              </div>
+              <p className="text-slate-500 text-[11px] sm:text-xs leading-normal">
                 Upload university mark sheet screenshots. AI extracts <strong className="text-slate-800">USN</strong>, <strong className="text-slate-800">Name</strong>, <strong className="text-slate-800">Subjects</strong>, <strong className="text-slate-800">Marks</strong>, and <strong className="text-slate-800">Results</strong> into structured rows tied to your account.
               </p>
             </div>
@@ -231,7 +234,7 @@ export default function App() {
 
           <button
             onClick={() => setIsUploadOpen(true)}
-            className="inline-flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shrink-0 transition-colors shadow-xs cursor-pointer"
+            className="w-full md:w-auto inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shrink-0 transition-colors shadow-xs cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Add Screenshot</span>

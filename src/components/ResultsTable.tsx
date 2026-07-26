@@ -17,7 +17,10 @@ import {
   LayoutList,
   Grid,
   Table as TableIcon,
-  ArrowUpDown
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  MoveHorizontal
 } from 'lucide-react';
 import { StudentRecord, SubjectResult } from '../types';
 import { isSubjectPass, isStudentPass, getEffectiveStatus } from '../utils/statusHelper';
@@ -38,7 +41,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [viewMode, setViewMode] = useState<'row-summary' | 'matrix' | 'cards'>('row-summary');
+  const [viewMode, setViewMode] = useState<'row-summary' | 'matrix' | 'cards'>('matrix');
   const [copiedUsn, setCopiedUsn] = useState<string | null>(null);
   const [sortField, setSortField] = useState<'usn' | 'name' | 'uploadedAt'>('usn');
   const [sortAsc, setSortAsc] = useState<boolean>(true);
@@ -142,6 +145,53 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
     }
   };
 
+  // Mouse drag panning handlers for Matrix view
+  const isMouseDown = useRef<boolean>(false);
+  const startX = useRef<number>(0);
+  const scrollLeftStart = useRef<number>(0);
+  const isDragging = useRef<boolean>(false);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest('button, input, a, select')) return;
+    isMouseDown.current = true;
+    isDragging.current = false;
+    startX.current = e.clientX;
+    if (matrixTableScrollRef.current) {
+      scrollLeftStart.current = matrixTableScrollRef.current.scrollLeft;
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isMouseDown.current || !matrixTableScrollRef.current) return;
+    const dx = e.clientX - startX.current;
+    if (Math.abs(dx) > 5) {
+      isDragging.current = true;
+    }
+    if (isDragging.current) {
+      matrixTableScrollRef.current.scrollLeft = scrollLeftStart.current - dx;
+    }
+  };
+
+  const handleMouseUp = () => {
+    isMouseDown.current = false;
+    setTimeout(() => {
+      isDragging.current = false;
+    }, 50);
+  };
+
+  const scrollMatrixLeft = () => {
+    if (matrixTableScrollRef.current) {
+      matrixTableScrollRef.current.scrollBy({ left: -320, behavior: 'smooth' });
+    }
+  };
+
+  const scrollMatrixRight = () => {
+    if (matrixTableScrollRef.current) {
+      matrixTableScrollRef.current.scrollBy({ left: 320, behavior: 'smooth' });
+    }
+  };
+
   if (records.length === 0) {
     return (
       <div className="max-w-4xl mx-auto my-12 p-10 bg-white border border-slate-200 rounded-2xl text-center shadow-sm">
@@ -169,7 +219,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
     <div className="space-y-4">
       
       {/* Controls Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         
         {/* Search */}
         <div className="relative flex-1 min-w-[240px]">
@@ -179,7 +229,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             placeholder="Search USN, Name, Subject..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-600 focus:bg-white transition-colors"
+            className="w-full pl-9 pr-4 py-2 rounded-lg bg-white border border-slate-200 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-600 shadow-xs transition-colors"
           />
         </div>
 
@@ -217,15 +267,6 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
           {/* View Toggles */}
           <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs">
             <button
-              onClick={() => setViewMode('row-summary')}
-              title="Standard Single Row Table View"
-              className={`p-1.5 rounded-md transition-colors ${
-                viewMode === 'row-summary' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <LayoutList className="w-4 h-4" />
-            </button>
-            <button
               onClick={() => setViewMode('matrix')}
               title="Expanded Subject Columns Matrix"
               className={`p-1.5 rounded-md transition-colors ${
@@ -233,6 +274,15 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               }`}
             >
               <TableIcon className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('row-summary')}
+              title="Standard Single Row Table View"
+              className={`p-1.5 rounded-md transition-colors ${
+                viewMode === 'row-summary' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <LayoutList className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode('cards')}
@@ -300,10 +350,10 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                     <tr
                       key={student.id}
                       onClick={() => onSelectStudent(student)}
-                      className={`transition-all duration-150 cursor-pointer group ${
+                      className={`transition-all duration-150 cursor-pointer group hover:shadow-md relative ${
                         !isPass
-                          ? 'bg-amber-50/30 hover:bg-amber-300/80 border-b border-amber-200/60'
-                          : 'hover:bg-emerald-300/70 border-b border-slate-100'
+                          ? 'bg-amber-50/30 hover:bg-amber-200/80 border-b border-amber-200/60'
+                          : 'hover:bg-emerald-200/70 border-b border-slate-100'
                       }`}
                     >
                       {/* USN Column */}
@@ -448,27 +498,63 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
 
       {/* VIEW MODE 2: Column Matrix View */}
       {viewMode === 'matrix' && (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm flex flex-col">
-          {/* Top Horizontal Scrollbar */}
-          <div
-            ref={topScrollRef}
-            onScroll={handleTopScroll}
-            className="overflow-x-auto overflow-y-hidden border-b border-slate-200 bg-slate-50/80 py-1"
-          >
-            <div style={{ width: matrixTableWidth ? `${matrixTableWidth}px` : '100%' }} className="h-1.5 min-w-full" />
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col">
+          {/* Matrix Top Control & Pan Bar - Sticky below main nav header */}
+          <div className="sticky top-[65px] z-40 bg-slate-100 border-b border-slate-200 px-3 py-2 flex items-center space-x-2.5 rounded-t-xl shadow-2xs">
+            <button
+              type="button"
+              onClick={scrollMatrixLeft}
+              className="px-2.5 py-1 rounded-md bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 shadow-2xs transition-colors shrink-0 cursor-pointer flex items-center space-x-1 text-xs font-semibold"
+              title="Scroll Left"
+            >
+              <ChevronLeft className="w-4 h-4 text-emerald-600" />
+              <span className="hidden sm:inline">Left</span>
+            </button>
+
+            <div
+              ref={topScrollRef}
+              onScroll={handleTopScroll}
+              className="flex-1 overflow-x-auto overflow-y-hidden py-1 cursor-ew-resize scrollbar-thin"
+              title="Scroll or drag horizontally"
+            >
+              <div style={{ width: matrixTableWidth ? `${matrixTableWidth}px` : '100%' }} className="h-2 min-w-full bg-slate-300 rounded-full" />
+            </div>
+
+            <button
+              type="button"
+              onClick={scrollMatrixRight}
+              className="px-2.5 py-1 rounded-md bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 shadow-2xs transition-colors shrink-0 cursor-pointer flex items-center space-x-1 text-xs font-semibold"
+              title="Scroll Right"
+            >
+              <span className="hidden sm:inline">Right</span>
+              <ChevronRight className="w-4 h-4 text-emerald-600" />
+            </button>
+
+            <span className="text-[11px] text-slate-600 font-medium shrink-0 hidden md:inline-flex items-center space-x-1 px-2 py-1 bg-slate-200/80 rounded border border-slate-300/80">
+              <MoveHorizontal className="w-3.5 h-3.5 text-slate-600" />
+              <span>Pan Table</span>
+            </span>
           </div>
 
-          <div ref={matrixTableScrollRef} onScroll={handleMatrixTableScroll} className="overflow-x-auto relative">
+          <div
+            ref={matrixTableScrollRef}
+            onScroll={handleMatrixTableScroll}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            className="overflow-x-auto relative cursor-grab active:cursor-grabbing select-none"
+          >
             <table ref={matrixTableRef} className="w-full text-xs text-left text-slate-700 border-collapse">
-              <thead className="bg-slate-50 text-slate-500 uppercase text-[12px] font-bold border-b border-slate-200">
+              <thead className="bg-slate-100 text-slate-600 uppercase text-[12px] font-bold border-b border-slate-200">
                 <tr>
-                  <th className="px-1 py-2 w-[38px] min-w-[38px] max-w-[38px] text-center sticky left-0 z-20 bg-slate-50 border-r border-slate-200/80 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)]">
+                  <th className="px-1 py-2 w-[38px] min-w-[38px] max-w-[38px] text-center relative md:sticky left-auto md:left-0 z-20 bg-slate-100 border-r border-slate-200 shadow-none md:shadow-[3px_0_5px_-2px_rgba(0,0,0,0.1)]">
                     S.N.
                   </th>
-                  <th className="px-1.5 py-2 w-[90px] min-w-[90px] max-w-[90px] sticky left-[38px] z-20 bg-slate-50 border-r border-slate-200/80 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)]">
+                  <th className="px-1.5 py-2 w-[90px] min-w-[90px] max-w-[90px] relative md:sticky left-auto md:left-[38px] z-20 bg-slate-100 border-r border-slate-200 shadow-none md:shadow-[3px_0_5px_-2px_rgba(0,0,0,0.1)]">
                     USN
                   </th>
-                  <th className="px-2 py-2 w-[150px] min-w-[150px] max-w-[150px] sticky left-[128px] z-20 bg-slate-50 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">
+                  <th className="px-2 py-2 w-[150px] min-w-[150px] max-w-[150px] relative md:sticky left-auto md:left-[128px] z-20 bg-slate-100 border-r border-slate-300 shadow-none md:shadow-[3px_0_5px_-2px_rgba(0,0,0,0.12)]">
                     Student Name
                   </th>
                   {Array.from({ length: maxSubjects }).map((_, i) => (
@@ -488,25 +574,28 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   return (
                     <tr
                       key={student.id}
-                      onClick={() => onSelectStudent(student)}
-                      className={`group cursor-pointer transition-all duration-150 ${
+                      onClick={() => {
+                        if (isDragging.current) return;
+                        onSelectStudent(student);
+                      }}
+                      className={`group cursor-pointer transition-all duration-150 relative hover:shadow-md ${
                         !isPass
-                          ? 'bg-amber-50/30 hover:bg-amber-300/80 border-b border-amber-200/60'
-                          : 'hover:bg-emerald-300/70 border-b border-slate-100'
+                          ? 'bg-amber-50/50 hover:bg-amber-200/80 border-b border-amber-200/60'
+                          : 'hover:bg-emerald-200/70 border-b border-slate-100'
                       }`}
                     >
-                      <td className={`px-1 py-1.5 w-[38px] min-w-[38px] max-w-[38px] text-center sticky left-0 z-10 font-mono text-slate-500 text-[11px] font-semibold border-r border-slate-200/80 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] truncate transition-colors ${
-                        !isPass ? 'bg-amber-50/40 group-hover:bg-amber-300/90' : 'bg-white group-hover:bg-emerald-300/80'
+                      <td className={`px-1 py-1.5 w-[38px] min-w-[38px] max-w-[38px] text-center relative md:sticky left-auto md:left-0 z-10 font-mono text-slate-600 text-[11px] font-semibold border-r border-slate-200 shadow-none md:shadow-[3px_0_5px_-2px_rgba(0,0,0,0.1)] truncate transition-colors ${
+                        !isPass ? 'bg-amber-100 group-hover:bg-amber-200' : 'bg-white group-hover:bg-emerald-100'
                       }`}>
                         {index + 1}
                       </td>
-                      <td className={`px-1.5 py-1.5 w-[90px] min-w-[90px] max-w-[90px] sticky left-[38px] z-10 font-mono font-bold text-emerald-800 text-[13px] border-r border-slate-200/80 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] truncate transition-colors ${
-                        !isPass ? 'bg-amber-50/40 group-hover:bg-amber-300/90' : 'bg-white group-hover:bg-emerald-300/80'
+                      <td className={`px-1.5 py-1.5 w-[90px] min-w-[90px] max-w-[90px] relative md:sticky left-auto md:left-[38px] z-10 font-mono font-bold text-emerald-800 text-[13px] border-r border-slate-200 shadow-none md:shadow-[3px_0_5px_-2px_rgba(0,0,0,0.1)] truncate transition-colors ${
+                        !isPass ? 'bg-amber-100 group-hover:bg-amber-200' : 'bg-white group-hover:bg-emerald-100'
                       }`}>
                         {student.usn}
                       </td>
-                      <td className={`px-2 py-1.5 w-[150px] min-w-[150px] max-w-[150px] sticky left-[128px] z-10 font-semibold text-slate-900 text-[12px] border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] whitespace-normal break-words leading-tight transition-colors ${
-                        !isPass ? 'bg-amber-50/40 group-hover:bg-amber-300/90' : 'bg-white group-hover:bg-emerald-300/80'
+                      <td className={`px-2 py-1.5 w-[150px] min-w-[150px] max-w-[150px] relative md:sticky left-auto md:left-[128px] z-10 font-semibold text-slate-900 text-[12px] border-r border-slate-300 shadow-none md:shadow-[3px_0_5px_-2px_rgba(0,0,0,0.12)] whitespace-normal break-words leading-tight transition-colors ${
+                        !isPass ? 'bg-amber-100 group-hover:bg-amber-200' : 'bg-white group-hover:bg-emerald-100'
                       }`}>
                         {student.name}
                       </td>
@@ -562,6 +651,33 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Sticky Bottom Horizontal Scrollbar & Footer Bar */}
+          <div className="sticky bottom-0 z-30 bg-slate-50/95 backdrop-blur-md border-t border-slate-200 px-3 py-1.5 shadow-xs flex items-center justify-between text-xs text-slate-500 rounded-b-xl">
+            <span className="font-medium text-slate-600">
+              Displaying {sortedRecords.length} student record(s) • Click & drag or use Left/Right buttons to pan table
+            </span>
+            <div className="flex items-center space-x-1.5">
+              <button
+                type="button"
+                onClick={scrollMatrixLeft}
+                className="px-2 py-1 rounded bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors cursor-pointer text-xs font-medium flex items-center space-x-1"
+                title="Scroll Left"
+              >
+                <ChevronLeft className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Left</span>
+              </button>
+              <button
+                type="button"
+                onClick={scrollMatrixRight}
+                className="px-2 py-1 rounded bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors cursor-pointer text-xs font-medium flex items-center space-x-1"
+                title="Scroll Right"
+              >
+                <span>Right</span>
+                <ChevronRight className="w-3.5 h-3.5 text-emerald-600" />
+              </button>
+            </div>
           </div>
         </div>
       )}
