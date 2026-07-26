@@ -26,6 +26,46 @@ import { StudentRecord, SubjectResult } from '../types';
 import { isSubjectPass, isStudentPass, getEffectiveStatus } from '../utils/statusHelper';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 
+// Helper to calculate total marks across all subjects for a student
+export const getStudentTotalMarks = (student: StudentRecord): { display: string; sum: number; hasValid: boolean } => {
+  let sum = 0;
+  let maxSum = 0;
+  let hasValid = false;
+  let hasDenominator = false;
+
+  student.subjects?.forEach((s) => {
+    if (s.totalMarks) {
+      // Handles formats like "85/100" or just "85"
+      const parts = s.totalMarks.split('/');
+      const obtainedStr = parts[0].trim();
+      const val = parseInt(obtainedStr, 10);
+      if (!isNaN(val)) {
+        sum += val;
+        hasValid = true;
+
+        if (parts.length > 1) {
+          const maxStr = parts[1].trim();
+          const maxVal = parseInt(maxStr, 10);
+          if (!isNaN(maxVal)) {
+            maxSum += maxVal;
+            hasDenominator = true;
+          }
+        }
+      }
+    }
+  });
+
+  if (!hasValid) {
+    return { display: '-', sum: 0, hasValid: false };
+  }
+
+  if (hasDenominator && maxSum > 0) {
+    return { display: `${sum}/${maxSum}`, sum, hasValid: true };
+  }
+
+  return { display: `${sum}`, sum, hasValid: true };
+};
+
 interface ResultsTableProps {
   records: StudentRecord[];
   onSelectStudent: (student: StudentRecord) => void;
@@ -333,6 +373,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   <th className="px-4 py-3.5">
                     <span>Subjects (Column 1) &amp; Results (Next Column)</span>
                   </th>
+                  <th className="px-4 py-3.5 w-24 text-center">
+                    <span>Total</span>
+                  </th>
                   <th className="px-4 py-3.5 w-28 text-center">
                     <span>Overall Status</span>
                   </th>
@@ -438,6 +481,13 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             <span className="text-slate-400 italic">No subject data extracted</span>
                           )}
                         </div>
+                      </td>
+
+                      {/* Total Marks Column */}
+                      <td className="px-4 py-4 align-top text-center">
+                        <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 font-mono font-bold text-xs shadow-3xs">
+                          {getStudentTotalMarks(student).display}
+                        </span>
                       </td>
 
                       {/* Overall Status Column */}
@@ -562,6 +612,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                       Subject #{i + 1}
                     </th>
                   ))}
+                  <th className="px-3 py-2 text-center min-w-[90px] border-r border-slate-200">Total</th>
                   <th className="px-3 py-2 text-center min-w-[90px]">Status</th>
                   <th className="px-3 py-2 text-right min-w-[80px]">Actions</th>
                 </tr>
@@ -623,6 +674,11 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                           </td>
                         );
                       })}
+                      <td className="px-3 py-1.5 text-center border-r border-slate-100 min-w-[90px]">
+                        <span className="inline-flex items-center justify-center px-2.5 py-1 rounded bg-slate-50 border border-slate-200 text-slate-800 font-mono font-bold text-xs">
+                          {getStudentTotalMarks(student).display}
+                        </span>
+                      </td>
                       <td className="px-3 py-1.5 text-center">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isPass ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
                           {displayStatus}
@@ -755,7 +811,10 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 </div>
 
                 <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-4 text-xs text-slate-500">
-                  <span>SGPA: <strong className="text-slate-800">{student.sgpa || 'N/A'}</strong></span>
+                  <div className="flex flex-col gap-0.5">
+                    <span>SGPA: <strong className="text-slate-800">{student.sgpa || 'N/A'}</strong></span>
+                    <span>Total: <strong className="text-slate-900 font-mono font-bold">{getStudentTotalMarks(student).display}</strong></span>
+                  </div>
                   <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => onSelectStudent(student)}

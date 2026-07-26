@@ -61,10 +61,10 @@ export function exportToCsv(records: StudentRecord[]): void {
   const subjectList = Array.from(subjectMap.entries());
 
   // First Row: Base metadata headers + subject names (repeated 4 times per subject for sub-columns)
-  const headerRow1: string[] = ['USN', 'Student Name', 'College', 'Semester', 'Status', 'SGPA'];
+  const headerRow1: string[] = ['S.No.', 'USN', 'Student Name', 'College', 'Semester', 'Status', 'SGPA'];
 
   // Second Row: Empty for base metadata + Internal, External, Total, Result sub-headers for each subject
-  const headerRow2: string[] = ['', '', '', '', '', ''];
+  const headerRow2: string[] = ['', '', '', '', '', '', ''];
 
   if (subjectList.length > 0) {
     subjectList.forEach(([_, sub]) => {
@@ -82,10 +82,11 @@ export function exportToCsv(records: StudentRecord[]): void {
     headerRow2.map(escapeCsvCell),
   ];
 
-  records.forEach((rec) => {
+  records.forEach((rec, index) => {
     const statusVal = getEffectiveStatus(rec);
 
     const row: string[] = [
+      escapeCsvCell(index + 1),
       escapeCsvCell(rec.usn || ''),
       escapeCsvCell(rec.name || ''),
       escapeCsvCell(rec.college || ''),
