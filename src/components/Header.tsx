@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileSpreadsheet, Upload, Download, GraduationCap, LogOut, ShieldCheck, Database, Save } from 'lucide-react';
+import { FileSpreadsheet, Upload, Download, GraduationCap, LogOut, ShieldCheck, Database, Save, BarChart3 } from 'lucide-react';
 import { StudentRecord, AuthUser } from '../types';
 import { isStudentPass } from '../utils/statusHelper';
 
@@ -7,6 +7,7 @@ interface HeaderProps {
   records: StudentRecord[];
   currentUser: AuthUser;
   onOpenUpload: () => void;
+  onOpenStatus: () => void;
   onPasteClipboard: () => void;
   onExportCsv: () => void;
   onSaveToDatabase: () => void;
@@ -18,6 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   records,
   currentUser,
   onOpenUpload,
+  onOpenStatus,
   onPasteClipboard,
   onExportCsv,
   onSaveToDatabase,
@@ -115,6 +117,14 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span>Upload</span>
+              </button>
+
+              <button
+                onClick={onOpenStatus}
+                className="flex-1 lg:flex-none inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer"
+              >
+                <BarChart3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span>Status</span>
               </button>
 
               {totalStudents > 0 && (

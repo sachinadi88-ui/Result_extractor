@@ -5,6 +5,7 @@ import { UploadModal } from './components/UploadModal';
 import { StudentDetailModal } from './components/StudentDetailModal';
 import { LoginPage } from './components/LoginPage';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
+import { StatusModal } from './components/StatusModal';
 import { StudentRecord, AuthUser } from './types';
 import { getStoredStudentRecords, saveStudentRecords, exportToCsv } from './utils/storage';
 import { getEffectiveStatus } from './utils/statusHelper';
@@ -15,7 +16,7 @@ import {
   deleteRecordFromFirestore,
   deleteMultipleRecordsFromFirestore
 } from './lib/firebase';
-import { CheckCircle2, FileSpreadsheet, Plus, ShieldCheck, Database } from 'lucide-react';
+import { CheckCircle2, FileSpreadsheet, Plus, ShieldCheck, Database, BarChart3 } from 'lucide-react';
 
 const AUTH_STORAGE_KEY = 'vtu_auth_user_session_v1';
 
@@ -40,6 +41,7 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSyncingFirebase, setIsSyncingFirebase] = useState<boolean>(false);
   const [isClearAllConfirmOpen, setIsClearAllConfirmOpen] = useState<boolean>(false);
+  const [isStatusOpen, setIsStatusOpen] = useState<boolean>(false);
 
   // Sync session & load user records ONLY from Firebase Firestore when currentUser changes
   useEffect(() => {
@@ -186,6 +188,7 @@ export default function App() {
         records={records}
         currentUser={currentUser}
         onOpenUpload={() => setIsUploadOpen(true)}
+        onOpenStatus={() => setIsStatusOpen(true)}
         onPasteClipboard={() => setIsUploadOpen(true)}
         onExportCsv={handleExportCsv}
         onSaveToDatabase={handleSaveToDatabase}
@@ -283,6 +286,13 @@ export default function App() {
         message={`Are you sure you want to delete ALL ${records.length} student record(s) for ${currentUser?.name}? This action cannot be undone.`}
         onConfirm={confirmClearAll}
         onCancel={() => setIsClearAllConfirmOpen(false)}
+      />
+
+      {/* Subject Statistics Status Modal */}
+      <StatusModal
+        isOpen={isStatusOpen}
+        onClose={() => setIsStatusOpen(false)}
+        records={records}
       />
 
       {/* Floating Toast Notification */}
