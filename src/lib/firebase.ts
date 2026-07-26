@@ -15,7 +15,8 @@ import {
   collection,
   query,
   where,
-  deleteDoc
+  deleteDoc,
+  writeBatch
 } from "firebase/firestore";
 import {
   getDatabase,
@@ -55,14 +56,16 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const rtdb = getDatabase(app);
 
-// Initialize Provisioned Firestore App (secondary)
+// Initialize Provisioned Firestore App (secondary) - DEACTIVATED/DISABLED
 let dbProvisioned: any = null;
+/*
 try {
   const provApp = getApps().find(a => a.name === "provisionedApp") || initializeApp(provisionedConfig, "provisionedApp");
   dbProvisioned = getFirestore(provApp, provisionedConfig.firestoreDatabaseId);
 } catch (e) {
   console.warn("Provisioned DB init notice:", e);
 }
+*/
 
 export const googleProvider = new GoogleAuthProvider();
 
@@ -110,7 +113,8 @@ export async function saveRecordToFirestore(record: StudentRecord, userEmail: st
     }
   }
 
-  // 3. Save to Realtime Database
+  // 3. Save to Realtime Database - DEACTIVATED to avoid dual-write overhead/free-tier limits
+  /*
   if (rtdb) {
     try {
       const userKey = sanitizeEmailKey(userEmail);
@@ -121,15 +125,61 @@ export async function saveRecordToFirestore(record: StudentRecord, userEmail: st
       console.warn("Realtime DB write notice:", rtdbErr?.message || rtdbErr);
     }
   }
+  */
 }
 
 export async function saveMultipleRecordsToFirestore(records: StudentRecord[], userEmail: string): Promise<void> {
-  try {
-    const promises = records.map((rec) => saveRecordToFirestore(rec, userEmail));
-    await Promise.all(promises);
-    console.log(`Successfully saved ${records.length} records to Firebase database.`);
-  } catch (error) {
-    console.warn("Error saving multiple records to Firebase database:", error);
+  if (records.length === 0) return;
+
+  const chunkSize = 500;
+  for (let i = 0; i < records.length; i += chunkSize) {
+    const chunk = records.slice(i, i + chunkSize);
+
+    // Batch for primary Firestore
+    try {
+      const batch = writeBatch(db);
+      chunk.forEach((record) => {
+        const docData = {
+          ...record,
+          extractedByEmail: userEmail,
+          updatedAt: new Date().toISOString()
+        };
+        const recordRef = doc(db, "student_records", record.id);
+        batch.set(recordRef, docData, { merge: true });
+      });
+      await batch.commit();
+      console.log(`Saved chunk of ${chunk.length} records to primary Firestore.`);
+    } catch (error) {
+      console.error("Error committing primary Firestore batch:", error);
+      // Fallback to sequential saves if batch fails
+      for (const record of chunk) {
+        try {
+          await saveRecordToFirestore(record, userEmail);
+        } catch (singleErr) {
+          console.warn("Fallback save failed for record:", record.id, singleErr);
+        }
+      }
+    }
+
+    // Batch for provisioned Firestore if active
+    if (dbProvisioned) {
+      try {
+        const batchProv = writeBatch(dbProvisioned);
+        chunk.forEach((record) => {
+          const docData = {
+            ...record,
+            extractedByEmail: userEmail,
+            updatedAt: new Date().toISOString()
+          };
+          const provRef = doc(dbProvisioned, "student_records", record.id);
+          batchProv.set(provRef, docData, { merge: true });
+        });
+        await batchProv.commit();
+        console.log(`Saved chunk of ${chunk.length} records to provisioned Firestore.`);
+      } catch (error) {
+        console.error("Error committing provisioned Firestore batch:", error);
+      }
+    }
   }
 }
 
@@ -168,7 +218,8 @@ export async function fetchStudentRecordsFromFirestore(userEmail: string): Promi
     }
   }
 
-  // 3. Fetch from Realtime Database if accessible
+  // 3. Fetch from Realtime Database if accessible - DEACTIVATED to avoid dual-write overhead/free-tier limits
+  /*
   if (rtdb) {
     try {
       const userKey = sanitizeEmailKey(userEmail);
@@ -186,6 +237,7 @@ export async function fetchStudentRecordsFromFirestore(userEmail: string): Promi
       console.warn("Realtime DB read skipped (check RTDB rules if needed):", rtdbErr?.message || rtdbErr);
     }
   }
+  */
 
   return Array.from(recordsMap.values());
 }
@@ -209,7 +261,8 @@ export async function deleteRecordFromFirestore(recordId: string, userEmail?: st
     }
   }
 
-  // 3. Realtime DB delete
+  // 3. Realtime DB delete - DEACTIVATED to avoid dual-write overhead/free-tier limits
+  /*
   if (rtdb && userEmail) {
     try {
       const userKey = sanitizeEmailKey(userEmail);
@@ -217,6 +270,52 @@ export async function deleteRecordFromFirestore(recordId: string, userEmail?: st
       await remove(rtdbRef);
     } catch (rtdbErr: any) {
       console.warn("Realtime DB delete skipped:", rtdbErr?.message || rtdbErr);
+    }
+  }
+  */
+}
+
+export async function deleteMultipleRecordsFromFirestore(recordIds: string[], userEmail?: string): Promise<void> {
+  if (recordIds.length === 0) return;
+
+  const chunkSize = 500;
+  for (let i = 0; i < recordIds.length; i += chunkSize) {
+    const chunk = recordIds.slice(i, i + chunkSize);
+
+    // Batch delete primary Firestore
+    try {
+      const batch = writeBatch(db);
+      chunk.forEach((id) => {
+        const recordRef = doc(db, "student_records", id);
+        batch.delete(recordRef);
+      });
+      await batch.commit();
+      console.log(`Deleted chunk of ${chunk.length} records from primary Firestore.`);
+    } catch (error) {
+      console.error("Error committing primary Firestore delete batch:", error);
+      // Fallback to sequential deletes if batch fails
+      for (const id of chunk) {
+        try {
+          await deleteRecordFromFirestore(id, userEmail);
+        } catch (singleErr) {
+          console.warn("Fallback delete failed for record:", id, singleErr);
+        }
+      }
+    }
+
+    // Batch delete provisioned Firestore if active
+    if (dbProvisioned) {
+      try {
+        const batchProv = writeBatch(dbProvisioned);
+        chunk.forEach((id) => {
+          const recordRef = doc(dbProvisioned, "student_records", id);
+          batchProv.delete(recordRef);
+        });
+        await batchProv.commit();
+        console.log(`Deleted chunk of ${chunk.length} records from provisioned Firestore.`);
+      } catch (error) {
+        console.error("Error committing provisioned Firestore delete batch:", error);
+      }
     }
   }
 }

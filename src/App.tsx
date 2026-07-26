@@ -12,7 +12,8 @@ import {
   saveRecordToFirestore,
   saveMultipleRecordsToFirestore,
   fetchStudentRecordsFromFirestore,
-  deleteRecordFromFirestore
+  deleteRecordFromFirestore,
+  deleteMultipleRecordsFromFirestore
 } from './lib/firebase';
 import { CheckCircle2, FileSpreadsheet, Plus, ShieldCheck, Database } from 'lucide-react';
 
@@ -131,12 +132,21 @@ export default function App() {
     setIsClearAllConfirmOpen(true);
   };
 
-  const confirmClearAll = () => {
+  const confirmClearAll = async () => {
     if (!currentUser) return;
-    records.forEach((r) => deleteRecordFromFirestore(r.id, currentUser.email));
-    setRecords([]);
-    setIsClearAllConfirmOpen(false);
-    showToast('All student records cleared from Firebase.');
+    setIsSyncingFirebase(true);
+    try {
+      const recordIds = records.map((r) => r.id);
+      await deleteMultipleRecordsFromFirestore(recordIds, currentUser.email);
+      setRecords([]);
+      setIsClearAllConfirmOpen(false);
+      showToast('All student records cleared from Firebase.');
+    } catch (err) {
+      console.error('Error clearing records:', err);
+      showToast('Failed to clear some records from database.');
+    } finally {
+      setIsSyncingFirebase(false);
+    }
   };
 
   const handleExportCsv = () => {
