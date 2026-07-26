@@ -6,6 +6,7 @@ import { StudentDetailModal } from './components/StudentDetailModal';
 import { LoginPage } from './components/LoginPage';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { StatusModal } from './components/StatusModal';
+import { SignOutConfirmModal } from './components/SignOutConfirmModal';
 import { StudentRecord, AuthUser } from './types';
 import { getStoredStudentRecords, saveStudentRecords, exportToCsv } from './utils/storage';
 import { getEffectiveStatus } from './utils/statusHelper';
@@ -42,6 +43,7 @@ export default function App() {
   const [isSyncingFirebase, setIsSyncingFirebase] = useState<boolean>(false);
   const [isClearAllConfirmOpen, setIsClearAllConfirmOpen] = useState<boolean>(false);
   const [isStatusOpen, setIsStatusOpen] = useState<boolean>(false);
+  const [isSignOutConfirmOpen, setIsSignOutConfirmOpen] = useState<boolean>(false);
 
   // Sync session & load user records ONLY from Firebase Firestore when currentUser changes
   useEffect(() => {
@@ -81,7 +83,12 @@ export default function App() {
   };
 
   const handleSignOut = () => {
+    setIsSignOutConfirmOpen(true);
+  };
+
+  const confirmSignOut = () => {
     setCurrentUser(null);
+    setIsSignOutConfirmOpen(false);
     showToast('Successfully signed out.');
   };
 
@@ -293,6 +300,15 @@ export default function App() {
         isOpen={isStatusOpen}
         onClose={() => setIsStatusOpen(false)}
         records={records}
+      />
+
+      {/* Sign Out Confirmation Modal */}
+      <SignOutConfirmModal
+        isOpen={isSignOutConfirmOpen}
+        userName={currentUser?.name}
+        userEmail={currentUser?.email}
+        onConfirm={confirmSignOut}
+        onCancel={() => setIsSignOutConfirmOpen(false)}
       />
 
       {/* Floating Toast Notification */}

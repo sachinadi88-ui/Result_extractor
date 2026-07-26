@@ -27,7 +27,22 @@ export const Header: React.FC<HeaderProps> = ({
   onSignOut,
 }) => {
   const totalStudents = records.length;
-  const totalSubjects = records.reduce((acc, r) => acc + (r.subjects ? r.subjects.length : 0), 0);
+  const uniqueSubjectsSet = new Set<string>();
+  records.forEach((r) => {
+    if (r.subjects && Array.isArray(r.subjects)) {
+      r.subjects.forEach((sub) => {
+        if (sub && sub.subjectName) {
+          const code = (sub.subjectCode || '').trim().toUpperCase();
+          const name = (sub.subjectName || '').trim().toUpperCase();
+          const key = code ? `${code}::${name}` : name;
+          if (key) {
+            uniqueSubjectsSet.add(key);
+          }
+        }
+      });
+    }
+  });
+  const totalSubjects = uniqueSubjectsSet.size;
   const passCount = records.filter(r => isStudentPass(r)).length;
   const passPercentage = totalStudents > 0 ? Math.round((passCount / totalStudents) * 100) : 0;
 
