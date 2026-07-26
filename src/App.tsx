@@ -30,11 +30,8 @@ export default function App() {
   });
 
   // Student Records linked to current user's email
-  const [records, setRecords] = useState<StudentRecord[]>(() => {
-    if (!currentUser) return [];
-    const stored = getStoredStudentRecords(currentUser.email);
-    return stored.filter((r) => !r.id.startsWith('sample-'));
-  });
+  // Exclusively retrieved from database, bypassing local storage
+  const [records, setRecords] = useState<StudentRecord[]>([]);
 
   const [isUploadOpen, setIsUploadOpen] = useState<boolean>(false);
   const [selectedStudent, setSelectedStudent] = useState<StudentRecord | null>(null);
@@ -43,44 +40,30 @@ export default function App() {
   const [isSyncingFirebase, setIsSyncingFirebase] = useState<boolean>(false);
   const [isClearAllConfirmOpen, setIsClearAllConfirmOpen] = useState<boolean>(false);
 
-  // Sync session & load user records from Firestore and LocalStorage when currentUser changes
+  // Sync session & load user records ONLY from Firebase Firestore when currentUser changes
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(currentUser));
-      const localStored = getStoredStudentRecords(currentUser.email).filter((r) => !r.id.startsWith('sample-'));
-      setRecords(localStored);
 
       // Fetch persistent records from Firebase Firestore
       setIsSyncingFirebase(true);
       fetchStudentRecordsFromFirestore(currentUser.email).then((remoteRecords) => {
         setIsSyncingFirebase(false);
-        if (remoteRecords && remoteRecords.length > 0) {
-          // Merge local and remote records avoiding duplicates by ID or USN
-          setRecords((prev) => {
-            const map = new Map<string, StudentRecord>();
-            prev.forEach((r) => map.set(r.id, r));
-            remoteRecords.forEach((r) => map.set(r.id, r));
-            const merged = Array.from(map.values());
-            saveStudentRecords(merged, currentUser.email);
-            return merged;
-          });
+        if (remoteRecords) {
+          setRecords(remoteRecords);
+        } else {
+          setRecords([]);
         }
       }).catch((err) => {
         setIsSyncingFirebase(false);
         console.error('Error syncing from Firebase Firestore:', err);
+        setRecords([]);
       });
     } else {
       localStorage.removeItem(AUTH_STORAGE_KEY);
       setRecords([]);
     }
   }, [currentUser]);
-
-  // Save records locally
-  useEffect(() => {
-    if (currentUser) {
-      saveStudentRecords(records, currentUser.email);
-    }
-  }, [records, currentUser]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
