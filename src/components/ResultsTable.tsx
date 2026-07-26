@@ -551,14 +551,14 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   <th className="px-1 py-2 w-[38px] min-w-[38px] max-w-[38px] text-center relative md:sticky left-auto md:left-0 z-20 bg-slate-100 border-r border-slate-200 shadow-none md:shadow-[3px_0_5px_-2px_rgba(0,0,0,0.1)]">
                     S.N.
                   </th>
-                  <th className="px-1.5 py-2 w-[90px] min-w-[90px] max-w-[90px] relative md:sticky left-auto md:left-[38px] z-20 bg-slate-100 border-r border-slate-200 shadow-none md:shadow-[3px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                  <th className="px-1.5 py-2 w-[110px] min-w-[110px] max-w-[110px] relative md:sticky left-auto md:left-[38px] z-20 bg-slate-100 border-r border-slate-200 shadow-none md:shadow-[3px_0_5px_-2px_rgba(0,0,0,0.1)]">
                     USN
                   </th>
-                  <th className="px-2 py-2 w-[150px] min-w-[150px] max-w-[150px] relative md:sticky left-auto md:left-[128px] z-20 bg-slate-100 border-r border-slate-300 shadow-none md:shadow-[3px_0_5px_-2px_rgba(0,0,0,0.12)]">
+                  <th className="px-2 py-2 w-[150px] min-w-[150px] max-w-[150px] relative md:sticky left-auto md:left-[148px] z-20 bg-slate-100 border-r border-slate-300 shadow-none md:shadow-[3px_0_5px_-2px_rgba(0,0,0,0.12)]">
                     Student Name
                   </th>
                   {Array.from({ length: maxSubjects }).map((_, i) => (
-                    <th key={i} className="px-3 py-2 min-w-[160px]">
+                    <th key={i} className="px-3 py-2 w-[180px] min-w-[180px] max-w-[180px] border-r border-slate-200">
                       Subject #{i + 1}
                     </th>
                   ))}
@@ -589,12 +589,12 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                       }`}>
                         {index + 1}
                       </td>
-                      <td className={`px-1.5 py-1.5 w-[90px] min-w-[90px] max-w-[90px] relative md:sticky left-auto md:left-[38px] z-10 font-mono font-bold text-emerald-800 text-[13px] border-r border-slate-200 shadow-none md:shadow-[3px_0_5px_-2px_rgba(0,0,0,0.1)] truncate transition-colors ${
+                      <td className={`px-1.5 py-1.5 w-[110px] min-w-[110px] max-w-[110px] relative md:sticky left-auto md:left-[38px] z-10 font-mono font-bold text-emerald-800 text-[13px] border-r border-slate-200 shadow-none md:shadow-[3px_0_5px_-2px_rgba(0,0,0,0.1)] truncate transition-colors ${
                         !isPass ? 'bg-amber-100 group-hover:bg-amber-200' : 'bg-white group-hover:bg-emerald-100'
                       }`}>
                         {student.usn}
                       </td>
-                      <td className={`px-2 py-1.5 w-[150px] min-w-[150px] max-w-[150px] relative md:sticky left-auto md:left-[128px] z-10 font-semibold text-slate-900 text-[12px] border-r border-slate-300 shadow-none md:shadow-[3px_0_5px_-2px_rgba(0,0,0,0.12)] whitespace-normal break-words leading-tight transition-colors ${
+                      <td className={`px-2 py-1.5 w-[150px] min-w-[150px] max-w-[150px] relative md:sticky left-auto md:left-[148px] z-10 font-semibold text-slate-900 text-[12px] border-r border-slate-300 shadow-none md:shadow-[3px_0_5px_-2px_rgba(0,0,0,0.12)] whitespace-normal break-words leading-tight transition-colors ${
                         !isPass ? 'bg-amber-100 group-hover:bg-amber-200' : 'bg-white group-hover:bg-emerald-100'
                       }`}>
                         {student.name}
@@ -602,13 +602,13 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                       {Array.from({ length: maxSubjects }).map((_, i) => {
                         const sub = student.subjects?.[i];
                         if (!sub) {
-                          return <td key={i} className="px-3 py-1.5 text-slate-400 text-[10px] italic border-r border-slate-100/60">-</td>;
+                          return <td key={i} className="px-3 py-1.5 text-slate-400 text-[10px] italic border-r border-slate-100/60 w-[180px] min-w-[180px] max-w-[180px]">-</td>;
                         }
                         const pass = isSubjectPass(sub);
                         return (
-                          <td key={i} className="px-2 py-1.5 border-r border-slate-100/80">
+                          <td key={i} className="px-2 py-1.5 border-r border-slate-100/80 w-[180px] min-w-[180px] max-w-[180px]">
                             <div className="p-1.5 rounded-lg border border-transparent transition-all duration-150 group-hover:bg-white group-hover:border-slate-200 group-hover:shadow-2xs">
-                              <div className="font-bold text-slate-900 text-[11px] truncate max-w-[160px] leading-tight" title={sub.subjectName}>
+                              <div className="font-bold text-slate-900 text-[11px] truncate max-w-[164px] leading-tight" title={sub.subjectName}>
                                 {sub.subjectCode ? `${sub.subjectCode} ` : ''}{sub.subjectName}
                               </div>
                               {(sub.internalMarks || sub.externalMarks || sub.totalMarks) && (
