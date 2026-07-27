@@ -18,7 +18,7 @@ import {
   deleteMultipleRecordsFromFirestore
 } from './lib/firebase';
 import { CheckCircle2, FileSpreadsheet, Plus, ShieldCheck, Database, BarChart3 } from 'lucide-react';
-const smvcerLogo = "/src/assets/images/smvcer_crest_1785162471076.jpg";
+const smvcerLogo = "/smvcer_crest.jpg";
 
 const AUTH_STORAGE_KEY = 'vtu_auth_user_session_v1';
 
