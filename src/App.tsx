@@ -8,7 +8,7 @@ import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { StatusModal } from './components/StatusModal';
 import { SignOutConfirmModal } from './components/SignOutConfirmModal';
 import { StudentRecord, AuthUser } from './types';
-import { getStoredStudentRecords, saveStudentRecords, exportToCsv } from './utils/storage';
+import { getStoredStudentRecords, saveStudentRecords, exportToExcel } from './utils/storage';
 import { getEffectiveStatus } from './utils/statusHelper';
 import {
   saveRecordToFirestore,
@@ -158,9 +158,9 @@ export default function App() {
     }
   };
 
-  const handleExportCsv = () => {
-    exportToCsv(records);
-    showToast('Exporting student results to CSV format...');
+  const handleExportExcel = () => {
+    exportToExcel(records);
+    showToast('Exporting student results to formatted Excel (.xlsx)...');
   };
 
   const handleSaveToDatabase = async () => {
@@ -197,7 +197,7 @@ export default function App() {
         onOpenUpload={() => setIsUploadOpen(true)}
         onOpenStatus={() => setIsStatusOpen(true)}
         onPasteClipboard={() => setIsUploadOpen(true)}
-        onExportCsv={handleExportCsv}
+        onExportExcel={handleExportExcel}
         onSaveToDatabase={handleSaveToDatabase}
         onClearAll={handleClearAll}
         onSignOut={handleSignOut}

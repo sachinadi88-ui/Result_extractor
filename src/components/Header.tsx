@@ -9,7 +9,7 @@ interface HeaderProps {
   onOpenUpload: () => void;
   onOpenStatus: () => void;
   onPasteClipboard: () => void;
-  onExportCsv: () => void;
+  onExportExcel: () => void;
   onSaveToDatabase: () => void;
   onClearAll: () => void;
   onSignOut: () => void;
@@ -21,7 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenUpload,
   onOpenStatus,
   onPasteClipboard,
-  onExportCsv,
+  onExportExcel,
   onSaveToDatabase,
   onClearAll,
   onSignOut,
@@ -145,11 +145,11 @@ export const Header: React.FC<HeaderProps> = ({
               {totalStudents > 0 && (
                 <>
                   <button
-                    onClick={onExportCsv}
-                    className="inline-flex items-center justify-center space-x-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-medium transition-colors shadow-xs cursor-pointer"
+                    onClick={onExportExcel}
+                    className="inline-flex items-center justify-center space-x-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-medium transition-colors shadow-xs cursor-pointer animate-fade-in"
                   >
-                    <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    <span>Export<span className="hidden sm:inline"> CSV</span></span>
+                    <FileSpreadsheet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-100" />
+                    <span>Export<span className="hidden sm:inline"> Excel</span></span>
                   </button>
 
                   <button

@@ -23,48 +23,8 @@ import {
   MoveHorizontal
 } from 'lucide-react';
 import { StudentRecord, SubjectResult } from '../types';
-import { isSubjectPass, isStudentPass, getEffectiveStatus } from '../utils/statusHelper';
+import { isSubjectPass, isStudentPass, getEffectiveStatus, getStudentTotalMarks } from '../utils/statusHelper';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
-
-// Helper to calculate total marks across all subjects for a student
-export const getStudentTotalMarks = (student: StudentRecord): { display: string; sum: number; hasValid: boolean } => {
-  let sum = 0;
-  let maxSum = 0;
-  let hasValid = false;
-  let hasDenominator = false;
-
-  student.subjects?.forEach((s) => {
-    if (s.totalMarks) {
-      // Handles formats like "85/100" or just "85"
-      const parts = s.totalMarks.split('/');
-      const obtainedStr = parts[0].trim();
-      const val = parseInt(obtainedStr, 10);
-      if (!isNaN(val)) {
-        sum += val;
-        hasValid = true;
-
-        if (parts.length > 1) {
-          const maxStr = parts[1].trim();
-          const maxVal = parseInt(maxStr, 10);
-          if (!isNaN(maxVal)) {
-            maxSum += maxVal;
-            hasDenominator = true;
-          }
-        }
-      }
-    }
-  });
-
-  if (!hasValid) {
-    return { display: '-', sum: 0, hasValid: false };
-  }
-
-  if (hasDenominator && maxSum > 0) {
-    return { display: `${sum}/${maxSum}`, sum, hasValid: true };
-  }
-
-  return { display: `${sum}`, sum, hasValid: true };
-};
 
 interface ResultsTableProps {
   records: StudentRecord[];
