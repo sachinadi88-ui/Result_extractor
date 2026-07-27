@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { StudentRecord } from '../types';
-import { getEffectiveStatus, getStudentTotalMarks, isSubjectPass } from './statusHelper';
+import { getEffectiveStatus, getStudentTotalMarks, isSubjectPass, isStudentPass } from './statusHelper';
 
 const BASE_STORAGE_KEY = 'student_results_extracted_v1';
 
@@ -516,9 +516,45 @@ export async function exportToExcel(records: StudentRecord[]): Promise<void> {
   if (topExcelStudents.length > 0 || subjectStatsList.length > 0) {
     const startRowIdx = worksheet.lastRow ? worksheet.lastRow.number + 1 : 1;
 
+    // Calculate total, pass and pass percentage metrics
+    const totalPass = records.filter(r => isStudentPass(r)).length;
+    const passPercentage = records.length > 0 ? Math.round((totalPass / records.length) * 1000) / 10 : 0;
+
+    // Helper for styling merged cells in a range correctly to avoid ExcelJS background/border cutoffs
+    const mergeAndStyleRange = (
+      sheet: ExcelJS.Worksheet,
+      rowNum: number,
+      colStart: number,
+      colEnd: number,
+      val: any,
+      font: any,
+      fill: any,
+      border: any,
+      alignment: any
+    ) => {
+      sheet.mergeCells(rowNum, colStart, rowNum, colEnd);
+      for (let c = colStart; c <= colEnd; c++) {
+        const cell = sheet.getCell(rowNum, c);
+        if (c === colStart) {
+          cell.value = val;
+        }
+        if (font) cell.font = font;
+        if (fill) cell.fill = fill;
+        if (border) cell.border = border;
+        if (alignment) cell.alignment = alignment;
+      }
+    };
+
+    // Left table has: 2 rows (Title + Header) + topExcelStudents.length rows (Data) + 2 empty rows + 4 rows (Summary Card: Title + 3 stats rows)
+    const leftTableHeight = 2 + topExcelStudents.length;
+    const summaryCardStartRow = startRowIdx + leftTableHeight + 2;
+    const summaryCardHeight = 4;
+
     // Determine how many rows we need to pre-allocate
     const maxDataRows = Math.max(topExcelStudents.length, subjectStatsList.length);
-    const totalSectionRows = 2 + maxDataRows; // Title row, Headers row, and Data rows
+    const maxLeftRows = leftTableHeight + 2 + summaryCardHeight;
+    const maxRightRows = 2 + subjectStatsList.length;
+    const totalSectionRows = Math.max(maxLeftRows, maxRightRows);
 
     for (let i = 0; i < totalSectionRows; i++) {
       worksheet.addRow([]);
@@ -683,6 +719,102 @@ export async function exportToExcel(records: StudentRecord[]): Promise<void> {
         }
       }
     }
+
+    // --- OVERALL COLLEGE PERFORMANCE STATISTICS CARD ---
+    // Beautiful, professional-grade key-value panel positioned exactly 2 rows below the Top Performers table
+    const cardBorder: any = {
+      top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+      bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+      left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+      right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+    };
+
+    // 1. Title Row of the Summary Card
+    const cardTitleRow = worksheet.getRow(summaryCardStartRow);
+    cardTitleRow.height = 22;
+    mergeAndStyleRange(
+      worksheet,
+      summaryCardStartRow,
+      1,
+      4,
+      'OVERALL PERFORMANCE SUMMARY 📊',
+      { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF1E293B' } },
+      { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } },
+      cardBorder,
+      { vertical: 'middle', horizontal: 'center' }
+    );
+
+    // Helper for merged value cells in the card
+    const writeCardRow = (rowNum: number, label: string, value: any, labelColor: string, valColor: string, bgColor: string) => {
+      const row = worksheet.getRow(rowNum);
+      row.height = 20;
+      
+      // Label in Col 1-2
+      mergeAndStyleRange(
+        worksheet,
+        rowNum,
+        1,
+        2,
+        label,
+        { name: 'Segoe UI', size: 9, bold: true, color: { argb: labelColor } },
+        { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } },
+        cardBorder,
+        { vertical: 'middle', horizontal: 'left' }
+      );
+
+      // Value in Col 3-4
+      mergeAndStyleRange(
+        worksheet,
+        rowNum,
+        3,
+        4,
+        value,
+        { name: 'Segoe UI', size: 10, bold: true, color: { argb: valColor } },
+        { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } },
+        cardBorder,
+        { vertical: 'middle', horizontal: 'center' }
+      );
+    };
+
+    // 2. Total Enrolled Students
+    writeCardRow(
+      summaryCardStartRow + 1,
+      '  Total Enrolled Students',
+      records.length,
+      'FF475569', // Slate grey label
+      'FF0F172A', // Dark slate value
+      'FFF8FAFC'  // Very soft slate bg
+    );
+
+    // 3. Total Passed Students
+    writeCardRow(
+      summaryCardStartRow + 2,
+      '  Total Passed Students',
+      totalPass,
+      'FF047857', // Emerald green label
+      'FF065F46', // Dark emerald value
+      'FFECFDF5'  // Soft green bg
+    );
+
+    // 4. Overall Pass Percentage with nice color-coded background
+    let percentText = 'FFB45309'; // Default Amber
+    let percentBg = 'FFFEF3C7';   // Default light amber background
+    if (passPercentage >= 85) {
+      percentText = 'FF065F46';   // Emerald Green text
+      percentBg = 'FFD1FAE5';     // Soft Emerald Green background
+    } else if (passPercentage < 50) {
+      percentText = 'FF991B1B';   // Red text
+      percentBg = 'FFFEE2E2';     // Soft red background
+    }
+
+    writeCardRow(
+      summaryCardStartRow + 3,
+      '  Overall Pass Percentage',
+      `${passPercentage}%`,
+      percentText,
+      percentText, // Keep value matching the text theme color
+      percentBg
+    );
   }
 
   // Set column widths automatically

@@ -18,6 +18,7 @@ import {
   deleteMultipleRecordsFromFirestore
 } from './lib/firebase';
 import { CheckCircle2, FileSpreadsheet, Plus, ShieldCheck, Database, BarChart3 } from 'lucide-react';
+const smvcerLogo = "/src/assets/images/smvcer_crest_1785162471076.jpg";
 
 const AUTH_STORAGE_KEY = 'vtu_auth_user_session_v1';
 
@@ -92,7 +93,7 @@ export default function App() {
     showToast('Successfully signed out.');
   };
 
-  const handleExtractionSuccess = (
+  const handleExtractionSuccess = async (
     newStudents: Omit<StudentRecord, 'id' | 'uploadedAt'>[],
     imageBase64: string
   ) => {
@@ -109,32 +110,56 @@ export default function App() {
     // Update React state
     setRecords((prev) => [...createdRecords, ...prev]);
 
-    // Automatically store extracted student details into Firebase database!
-    saveMultipleRecordsToFirestore(createdRecords, currentUser.email);
-
-    showToast(`Successfully extracted & saved ${createdRecords.length} student record(s) to Firebase for ${currentUser.name}!`);
+    setIsSyncingFirebase(true);
+    try {
+      // Automatically store extracted student details into Firebase database!
+      await saveMultipleRecordsToFirestore(createdRecords, currentUser.email);
+      showToast(`Successfully extracted & saved ${createdRecords.length} student record(s) to Firebase for ${currentUser.name}!`);
+    } catch (err) {
+      console.error('Error auto-syncing to Firebase:', err);
+      showToast('Extraction complete, but failed to sync to Firebase database.');
+    } finally {
+      setIsSyncingFirebase(false);
+    }
   };
 
-  const handleSaveStudent = (updated: StudentRecord) => {
+  const handleSaveStudent = async (updated: StudentRecord) => {
     setRecords((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
     if (selectedStudent && selectedStudent.id === updated.id) {
       setSelectedStudent(updated);
     }
 
-    if (currentUser) {
-      saveRecordToFirestore(updated, currentUser.email);
+    setIsSyncingFirebase(true);
+    try {
+      if (currentUser) {
+        await saveRecordToFirestore(updated, currentUser.email);
+      }
+      showToast('Student record updated & synced to Firebase.');
+    } catch (err) {
+      console.error('Error saving student to Firebase:', err);
+      showToast('Failed to sync student update to Firebase.');
+    } finally {
+      setIsSyncingFirebase(false);
     }
-    showToast('Student record updated & synced to Firebase.');
   };
 
-  const handleDeleteStudent = (id: string) => {
+  const handleDeleteStudent = async (id: string) => {
     setRecords((prev) => prev.filter((r) => r.id !== id));
-    deleteRecordFromFirestore(id, currentUser?.email);
     if (selectedStudent && selectedStudent.id === id) {
       setIsDetailOpen(false);
       setSelectedStudent(null);
     }
-    showToast('Student record deleted from Firebase.');
+    
+    setIsSyncingFirebase(true);
+    try {
+      await deleteRecordFromFirestore(id, currentUser?.email);
+      showToast('Student record deleted from Firebase.');
+    } catch (err) {
+      console.error('Error deleting student from Firebase:', err);
+      showToast('Failed to delete student from Firebase.');
+    } finally {
+      setIsSyncingFirebase(false);
+    }
   };
 
   const handleClearAll = () => {
@@ -171,11 +196,55 @@ export default function App() {
     }
     setIsSyncingFirebase(true);
     try {
-      await saveMultipleRecordsToFirestore(records, currentUser.email);
-      showToast(`Saved ${records.length} student record(s) to Firebase database!`);
+      // Fetch currently saved records to avoid duplicates
+      const remoteRecords = await fetchStudentRecordsFromFirestore(currentUser.email);
+      const existingIds = new Set(remoteRecords.map(r => r.id));
+      const existingUsns = new Set(remoteRecords.map(r => r.usn?.trim().toUpperCase()).filter(Boolean));
+
+      // Filter out records that already exist in the database (by ID or USN)
+      const unsavedRecords = records.filter(r => {
+        const hasExistingId = existingIds.has(r.id);
+        const hasExistingUsn = r.usn && existingUsns.has(r.usn.trim().toUpperCase());
+        return !hasExistingId && !hasExistingUsn;
+      });
+
+      const skippedCount = records.length - unsavedRecords.length;
+
+      if (unsavedRecords.length === 0) {
+        showToast(`All ${records.length} record(s) are already saved in the database.`);
+        return;
+      }
+
+      await saveMultipleRecordsToFirestore(unsavedRecords, currentUser.email);
+
+      if (skippedCount > 0) {
+        showToast(`Saved ${unsavedRecords.length} new record(s) to database (${skippedCount} already in database, skipped).`);
+      } else {
+        showToast(`Successfully saved all ${unsavedRecords.length} student record(s) to Firebase!`);
+      }
     } catch (err) {
       console.error('Error saving to Firebase database:', err);
       showToast('Failed to save records to database.');
+    } finally {
+      setIsSyncingFirebase(false);
+    }
+  };
+
+  const handleReloadDatabase = async () => {
+    if (!currentUser) return;
+    setIsSyncingFirebase(true);
+    try {
+      const remoteRecords = await fetchStudentRecordsFromFirestore(currentUser.email);
+      if (remoteRecords) {
+        setRecords(remoteRecords);
+        showToast('Successfully reloaded student records from Firebase.');
+      } else {
+        setRecords([]);
+        showToast('No student records found in Firebase database.');
+      }
+    } catch (err) {
+      console.error('Error reloading database:', err);
+      showToast('Failed to reload database records.');
     } finally {
       setIsSyncingFirebase(false);
     }
@@ -199,6 +268,7 @@ export default function App() {
         onPasteClipboard={() => setIsUploadOpen(true)}
         onExportExcel={handleExportExcel}
         onSaveToDatabase={handleSaveToDatabase}
+        onReloadDatabase={handleReloadDatabase}
         onClearAll={handleClearAll}
         onSignOut={handleSignOut}
       />
@@ -316,6 +386,52 @@ export default function App() {
         <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-semibold shadow-xl flex items-center space-x-2 animate-bounce">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Syncing Toast Notification */}
+      {isSyncingFirebase && (
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-semibold shadow-xl flex items-center space-x-3 animate-bounce">
+          <div className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping shrink-0" />
+          <span className="text-slate-200">Syncing Data- Please Wait</span>
+        </div>
+      )}
+
+      {/* Synchronization Full-screen Backdrop & Loader Overlay */}
+      {isSyncingFirebase && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center transition-all duration-300">
+          <div className="bg-white/95 p-8 rounded-2xl shadow-2xl border border-slate-200/80 flex flex-col items-center text-center max-w-xs relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Pulsing ring background */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/5 to-emerald-500/5 pointer-events-none" />
+            
+            {/* Spinning/pulsing logo container */}
+            <div className="relative mb-4 w-24 h-24 flex items-center justify-center">
+              {/* Spinning dual-color dashed border */}
+              <div className="absolute inset-0 rounded-full border-4 border-dashed border-t-amber-500 border-r-emerald-500 border-b-amber-500 border-l-emerald-500 animate-spin" style={{ animationDuration: '4s' }} />
+              {/* Inner glowing effect */}
+              <div className="absolute inset-2 rounded-full bg-emerald-50/50 animate-pulse" />
+              {/* Logo Image */}
+              <img
+                src={smvcerLogo}
+                alt="SMVCER"
+                className="w-16 h-16 rounded-full object-cover shadow-md relative z-10 hover:scale-105 transition-transform duration-300"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+
+            {/* Custom "SMVCER" text styled in Amber and Green color with shadow effects */}
+            <div className="relative">
+              <h2 className="text-3xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-amber-500 via-emerald-600 to-green-600 drop-shadow-[0_4px_6px_rgba(245,158,11,0.25)] select-none">
+                SMVCER
+              </h2>
+              {/* Subtle green reflection line */}
+              <div className="w-12 h-1 bg-gradient-to-r from-amber-400 to-emerald-500 mx-auto mt-2 rounded-full opacity-80" />
+            </div>
+            
+            <p className="mt-4 text-[11px] font-bold text-slate-400 tracking-wider uppercase">
+              Database Sync
+            </p>
+          </div>
         </div>
       )}
 
