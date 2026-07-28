@@ -136,10 +136,10 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center justify-between lg:justify-end gap-2 shrink-0 w-full lg:w-auto">
             
             {/* Action Buttons */}
-            <div className="flex items-center space-x-1.5 sm:space-x-2 w-full lg:w-auto">
+            <div className="flex items-center space-x-1 sm:space-x-2 w-full lg:w-auto">
               <button
                 onClick={onOpenUpload}
-                className="flex-1 lg:flex-none inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer"
+                className="flex-1 lg:flex-none inline-flex items-center justify-center space-x-1 sm:space-x-1.5 px-2 py-1.5 sm:px-3.5 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer"
               >
                 <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span>Upload</span>
@@ -147,17 +147,17 @@ export const Header: React.FC<HeaderProps> = ({
 
               <button
                 onClick={onOpenStatus}
-                className="flex-1 lg:flex-none inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer"
+                className="flex-1 lg:flex-none inline-flex items-center justify-center space-x-1 sm:space-x-1.5 px-2 py-1.5 sm:px-3.5 sm:py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer"
               >
                 <BarChart3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span>Status</span>
+                <span>Stats</span>
               </button>
 
               {totalStudents > 0 && (
                 <>
                   <button
                     onClick={() => setIsExportModalOpen(true)}
-                    className="inline-flex items-center justify-center space-x-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer animate-fade-in"
+                    className="inline-flex items-center justify-center space-x-1 sm:space-x-1.5 px-1.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer animate-fade-in"
                   >
                     <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-100" />
                     <span>Export</span>
@@ -166,7 +166,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <button
                     onClick={onSaveToDatabase}
                     title="Save or sync unsaved changes to Firebase database"
-                    className="inline-flex items-center justify-center space-x-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer"
+                    className="inline-flex items-center justify-center space-x-1 px-1.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer"
                   >
                     <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     <span>Save<span className="hidden sm:inline"> to DB</span></span>
@@ -177,7 +177,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 onClick={onReloadDatabase}
                 title="Reload latest records from Firebase database"
-                className="inline-flex items-center justify-center p-2 sm:p-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-600 hover:text-slate-800 transition-colors shadow-xs cursor-pointer shrink-0"
+                className="inline-flex items-center justify-center p-1.5 sm:p-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-600 hover:text-slate-800 transition-colors shadow-xs cursor-pointer shrink-0"
               >
                 <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
@@ -185,7 +185,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 onClick={onOpenBackup}
                 title="Database Backup"
-                className="inline-flex items-center justify-center p-2 sm:p-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-600 hover:text-slate-800 transition-colors shadow-xs cursor-pointer shrink-0"
+                className="inline-flex items-center justify-center p-1.5 sm:p-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-600 hover:text-slate-800 transition-colors shadow-xs cursor-pointer shrink-0"
               >
                 <DatabaseBackup className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
