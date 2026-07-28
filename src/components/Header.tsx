@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FileSpreadsheet, Upload, Download, GraduationCap, LogOut, ShieldCheck, Database, Save, BarChart3, RefreshCw } from 'lucide-react';
 import { StudentRecord, AuthUser } from '../types';
 import { isStudentPass } from '../utils/statusHelper';
+import { ExportFormatModal } from './ExportFormatModal';
 
 interface HeaderProps {
   records: StudentRecord[];
@@ -10,6 +11,8 @@ interface HeaderProps {
   onOpenStatus: () => void;
   onPasteClipboard: () => void;
   onExportExcel: () => void;
+  onExportPDF: () => void;
+  onExportPDFLandscape: () => void;
   onSaveToDatabase: () => void;
   onReloadDatabase: () => void;
   onClearAll: () => void;
@@ -23,11 +26,14 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenStatus,
   onPasteClipboard,
   onExportExcel,
+  onExportPDF,
+  onExportPDFLandscape,
   onSaveToDatabase,
   onReloadDatabase,
   onClearAll,
   onSignOut,
 }) => {
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const totalStudents = records.length;
   const uniqueSubjectsSet = new Set<string>();
   records.forEach((r) => {
@@ -49,7 +55,8 @@ export const Header: React.FC<HeaderProps> = ({
   const passPercentage = totalStudents > 0 ? Math.round((passCount / totalStudents) * 100) : 0;
 
   return (
-    <header className="bg-white border-b border-slate-200 text-slate-900 sticky top-0 z-50 shadow-xs">
+    <>
+      <header className="bg-white border-b border-slate-200 text-slate-900 sticky top-0 z-50 shadow-xs">
       <div className="w-full px-3 sm:px-6 lg:px-8 py-2 sm:py-2.5">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 sm:gap-3">
           
@@ -147,11 +154,11 @@ export const Header: React.FC<HeaderProps> = ({
               {totalStudents > 0 && (
                 <>
                   <button
-                    onClick={onExportExcel}
-                    className="inline-flex items-center justify-center space-x-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-medium transition-colors shadow-xs cursor-pointer animate-fade-in"
+                    onClick={() => setIsExportModalOpen(true)}
+                    className="inline-flex items-center justify-center space-x-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer animate-fade-in"
                   >
-                    <FileSpreadsheet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-100" />
-                    <span>Export<span className="hidden sm:inline"> Excel</span></span>
+                    <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-100" />
+                    <span>Export</span>
                   </button>
 
                   <button
@@ -199,5 +206,13 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
     </header>
+    <ExportFormatModal
+      isOpen={isExportModalOpen}
+      onClose={() => setIsExportModalOpen(false)}
+      onExportExcel={onExportExcel}
+      onExportPDF={onExportPDF}
+      onExportPDFLandscape={onExportPDFLandscape}
+    />
+    </>
   );
 };

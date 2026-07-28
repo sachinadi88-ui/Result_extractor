@@ -9,6 +9,7 @@ import { StatusModal } from './components/StatusModal';
 import { SignOutConfirmModal } from './components/SignOutConfirmModal';
 import { StudentRecord, AuthUser } from './types';
 import { getStoredStudentRecords, saveStudentRecords, exportToExcel } from './utils/storage';
+import { exportToPDF, exportToPDFLandscape } from './utils/pdfExport';
 import { getEffectiveStatus } from './utils/statusHelper';
 import {
   saveRecordToFirestore,
@@ -188,6 +189,26 @@ export default function App() {
     showToast('Exporting student results to formatted Excel (.xlsx)...');
   };
 
+  const handleExportPDF = async () => {
+    try {
+      showToast('Preparing PDF document, generating statistics & rankings...');
+      await exportToPDF(records);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      showToast('Failed to export PDF document.');
+    }
+  };
+
+  const handleExportPDFLandscape = async () => {
+    try {
+      showToast('Preparing Landscape PDF, generating student-wise comprehensive sheet...');
+      await exportToPDFLandscape(records);
+    } catch (err) {
+      console.error('Error generating Landscape PDF:', err);
+      showToast('Failed to export Landscape PDF.');
+    }
+  };
+
   const handleSaveToDatabase = async () => {
     if (!currentUser) return;
     if (records.length === 0) {
@@ -267,6 +288,8 @@ export default function App() {
         onOpenStatus={() => setIsStatusOpen(true)}
         onPasteClipboard={() => setIsUploadOpen(true)}
         onExportExcel={handleExportExcel}
+        onExportPDF={handleExportPDF}
+        onExportPDFLandscape={handleExportPDFLandscape}
         onSaveToDatabase={handleSaveToDatabase}
         onReloadDatabase={handleReloadDatabase}
         onClearAll={handleClearAll}
