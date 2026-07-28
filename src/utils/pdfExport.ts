@@ -3,11 +3,11 @@ import autoTable from 'jspdf-autotable';
 import { StudentRecord } from '../types';
 import { getEffectiveStatus, getStudentTotalMarks, isStudentPass, isSubjectPass } from './statusHelper';
 
-// Helper to convert the logo to a base64 string for embedding
+// Helper to convert the college logo crest to a base64 string for embedding
 function getLogoDataUrl(): Promise<string | null> {
   return new Promise((resolve) => {
     const img = new Image();
-    img.src = '/smvcer_crest.jpg';
+    img.src = '/PDFlogo.jpg';
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       try {
@@ -26,7 +26,25 @@ function getLogoDataUrl(): Promise<string | null> {
       resolve(null);
     };
     img.onerror = () => {
-      resolve(null);
+      // Fallback to /smvcer_crest.jpg if /PDFlogo.jpg fails
+      const fallback = new Image();
+      fallback.src = '/smvcer_crest.jpg';
+      fallback.crossOrigin = 'anonymous';
+      fallback.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = fallback.width;
+          canvas.height = fallback.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(fallback, 0, 0);
+            resolve(canvas.toDataURL('image/jpeg'));
+            return;
+          }
+        } catch (e) {}
+        resolve(null);
+      };
+      fallback.onerror = () => resolve(null);
     };
   });
 }
@@ -54,28 +72,29 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
   // --- HEADER SECTION ---
   let headerStartY = 11;
   if (logoUrl) {
-    doc.addImage(logoUrl, 'JPEG', 15, headerStartY, 22, 22);
+    // Decreased logo width slightly for cleaner proportions
+    doc.addImage(logoUrl, 'JPEG', 15, headerStartY, 16, 18);
     
     // HKE Society's (top, small)
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(100, 116, 139); // Slate 500
-    doc.text(societyName, 40, headerStartY + 4);
+    doc.text(societyName, 34, headerStartY + 4);
     
     // Sir M. Visvesvaraya College of Engineering, Raichur (below it, larger)
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(12);
     doc.setTextColor(30, 41, 59); // Slate 800
-    doc.text(collegeName, 40, headerStartY + 10, { maxWidth: 150 });
+    doc.text(collegeName, 34, headerStartY + 10, { maxWidth: 155 });
     
     // Examination name
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(9.5);
     doc.setTextColor(71, 85, 105); // Slate 600
-    doc.text(examName, 40, headerStartY + 16, { maxWidth: 150 });
+    doc.text(examName, 34, headerStartY + 16, { maxWidth: 155 });
 
     doc.setFontSize(7.5);
-    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 40, headerStartY + 21);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 34, headerStartY + 21);
   } else {
     // HKE Society's (top, small)
     doc.setFont('Helvetica', 'bold');
@@ -436,28 +455,29 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
   // --- HEADER SECTION (LANDSCAPE) ---
   let headerStartY = 10;
   if (logoUrl) {
-    doc.addImage(logoUrl, 'JPEG', 15, headerStartY, 18, 18);
+    // Decreased logo width slightly for cleaner proportions in landscape
+    doc.addImage(logoUrl, 'JPEG', 15, headerStartY, 14, 16);
     
     // HKE Society's (top, small)
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(100, 116, 139); // Slate 500
-    doc.text(societyName, 37, headerStartY + 3);
+    doc.text(societyName, 32, headerStartY + 3);
     
     // Sir M. Visvesvaraya College of Engineering, Raichur (below it, larger)
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(11.5);
     doc.setTextColor(30, 41, 59); // Slate 800
-    doc.text(collegeName, 37, headerStartY + 8, { maxWidth: 220 });
+    doc.text(collegeName, 32, headerStartY + 8, { maxWidth: 225 });
     
     // Examination name
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(71, 85, 105); // Slate 600
-    doc.text(examName, 37, headerStartY + 13, { maxWidth: 220 });
+    doc.text(examName, 32, headerStartY + 13, { maxWidth: 225 });
 
     doc.setFontSize(7.5);
-    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 37, headerStartY + 17);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 32, headerStartY + 17);
   } else {
     // HKE Society's
     doc.setFont('Helvetica', 'bold');
@@ -495,16 +515,17 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
   doc.setTextColor(71, 85, 105); // Slate 600
   doc.text(`COLLEGE PERFORMANCE SUMMARY   •   Total Enrolled: ${records.length}   |   Passed: ${totalPass}   |   Pass Percentage: ${passPercentage}%`, 18, headerStartY + 27.5);
 
-  // Find all unique subjects
+  // Find all unique subjects in insertion order (same as Excel sheet)
   const uniqueSubjectsMap = new Map<string, { code: string; name: string }>();
 
   records.forEach((student) => {
     student.subjects?.forEach((sub) => {
       const code = (sub.subjectCode || '').trim();
       const name = (sub.subjectName || '').trim();
-      
-      const key = code ? code.toUpperCase() : name.toUpperCase();
-      if (key && !uniqueSubjectsMap.has(key)) {
+      if (!code && !name) return;
+
+      const key = code ? code.toUpperCase() : name.toLowerCase();
+      if (!uniqueSubjectsMap.has(key)) {
         uniqueSubjectsMap.set(key, { code, name });
       }
     });
@@ -515,9 +536,6 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
     code: value.code,
     name: value.name,
   }));
-
-  // Sort subjects to keep columns consistent
-  uniqueSubjectsList.sort((a, b) => a.key.localeCompare(b.key));
 
   const subjectHeaders = uniqueSubjectsList.map(sub => sub.code || (sub.name.length > 15 ? sub.name.substring(0, 12) + '..' : sub.name));
 
@@ -612,6 +630,209 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
       }
     },
   });
+
+  // --- SECTION: TOP PERFORMERS ---
+  const topStudents = [...records]
+    .map((student) => {
+      const totalInfo = getStudentTotalMarks(student);
+      const statusVal = getEffectiveStatus(student);
+      return {
+        student,
+        sum: totalInfo.sum,
+        display: totalInfo.display,
+        hasValid: totalInfo.hasValid,
+        statusVal,
+      };
+    })
+    .filter((item) => item.hasValid)
+    .sort((a, b) => b.sum - a.sum)
+    .slice(0, 3);
+
+  if (topStudents.length > 0) {
+    let finalY = (doc as any).lastAutoTable?.finalY || (headerStartY + 33);
+    
+    // Check if we need a page break for Top Performers section
+    if (finalY > 155) {
+      doc.addPage();
+      finalY = 20;
+    } else {
+      finalY += 8;
+    }
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 41, 59); // Slate 800
+    doc.text('TOP ACADEMIC PERFORMERS', 15, finalY);
+
+    const topPerformersRows = topStudents.map((item, index) => [
+      `Rank #${index + 1}`,
+      item.student.usn || '-',
+      item.student.name || '-',
+      item.student.semester || '-',
+      item.statusVal,
+      item.display
+    ]);
+
+    autoTable(doc, {
+      startY: finalY + 3,
+      margin: { left: 15, right: 15, bottom: 25 },
+      head: [['Rank', 'USN', 'Student Name', 'Semester', 'Status', 'Total Marks']],
+      body: topPerformersRows,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [30, 41, 59], // Slate 800
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 7.5,
+      },
+      styles: {
+        fontSize: 7.5,
+        cellPadding: 1.5,
+        valign: 'middle',
+      },
+      columnStyles: {
+        0: { cellWidth: 25, fontStyle: 'bold', halign: 'center' },
+        1: { cellWidth: 35 },
+        2: { cellWidth: 80 },
+        3: { cellWidth: 30, halign: 'center' },
+        4: { cellWidth: 30, halign: 'center' },
+        5: { cellWidth: 35, fontStyle: 'bold', halign: 'center' },
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body') {
+          // Rank badge colors
+          if (data.column.index === 0) {
+            if (data.row.index === 0) data.cell.styles.textColor = [180, 83, 9];
+            else if (data.row.index === 1) data.cell.styles.textColor = [71, 85, 105];
+            else if (data.row.index === 2) data.cell.styles.textColor = [146, 64, 14];
+          }
+          // Status column
+          if (data.column.index === 4) {
+            const val = String(data.cell.raw || '').toUpperCase().trim();
+            if (val === 'PASS') {
+              data.cell.styles.textColor = [5, 122, 85];
+              data.cell.styles.fillColor = [236, 253, 245];
+            } else if (val === 'FAIL') {
+              data.cell.styles.textColor = [185, 28, 28];
+              data.cell.styles.fillColor = [254, 242, 242];
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // --- SECTION: SUBJECT WISE STATISTICS ---
+  const statsMap = new Map<string, {
+    subjectCode: string;
+    subjectName: string;
+    totalStudents: number;
+    totalPass: number;
+    totalFail: number;
+  }>();
+
+  records.forEach((student) => {
+    if (student.subjects && Array.isArray(student.subjects)) {
+      student.subjects.forEach((sub) => {
+        if (!sub || !sub.subjectName) return;
+        const code = (sub.subjectCode || '').trim();
+        const name = (sub.subjectName || '').trim();
+        const key = code ? `${code.toUpperCase()}::${name.toUpperCase()}` : name.toUpperCase();
+
+        const isPass = isSubjectPass(sub);
+
+        if (!statsMap.has(key)) {
+          statsMap.set(key, {
+            subjectCode: code,
+            subjectName: name,
+            totalStudents: 0,
+            totalPass: 0,
+            totalFail: 0,
+          });
+        }
+
+        const current = statsMap.get(key)!;
+        current.totalStudents += 1;
+        if (isPass) {
+          current.totalPass += 1;
+        } else {
+          current.totalFail += 1;
+        }
+      });
+    }
+  });
+
+  const subjectStatsList = Array.from(statsMap.values()).map((stat) => {
+    const passPct = stat.totalStudents > 0 ? (stat.totalPass / stat.totalStudents) * 100 : 0;
+    return {
+      ...stat,
+      passPercentage: Math.round(passPct * 10) / 10,
+    };
+  });
+
+  let statsY = (doc as any).lastAutoTable?.finalY || (headerStartY + 33);
+  
+  if (statsY > 145) {
+    doc.addPage();
+    statsY = 20;
+  } else {
+    statsY += 8;
+  }
+
+  doc.setFont('Helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(30, 41, 59); // Slate 800
+  doc.text('SUBJECT-WISE PASS RATE & STATISTICS', 15, statsY);
+
+  if (subjectStatsList.length > 0) {
+    const subjectStatsRows = subjectStatsList.map((stat, idx) => [
+      idx + 1,
+      stat.subjectCode || '-',
+      stat.subjectName || '-',
+      stat.totalStudents,
+      stat.totalPass,
+      stat.totalFail,
+      `${stat.passPercentage}%`,
+    ]);
+
+    autoTable(doc, {
+      startY: statsY + 3,
+      margin: { left: 15, right: 15, bottom: 25 },
+      head: [['S.No.', 'Subject Code', 'Subject Name', 'Appeared', 'Passed', 'Failed', 'Pass Rate']],
+      body: subjectStatsRows,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [15, 23, 42], // Slate 900
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 7.5,
+      },
+      styles: {
+        fontSize: 7.5,
+        cellPadding: 1.5,
+        valign: 'middle',
+      },
+      columnStyles: {
+        0: { cellWidth: 15, halign: 'center' },
+        1: { cellWidth: 35, fontStyle: 'bold' },
+        2: { cellWidth: 105 },
+        3: { cellWidth: 25, halign: 'center' },
+        4: { cellWidth: 25, halign: 'center', textColor: [5, 122, 85] },
+        5: { cellWidth: 25, halign: 'center', textColor: [185, 28, 28] },
+        6: { cellWidth: 25, halign: 'center', fontStyle: 'bold' },
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 6) {
+          const pct = parseFloat(String(data.cell.raw).replace('%', ''));
+          if (pct >= 75) {
+            data.cell.styles.textColor = [5, 122, 85];
+          } else if (pct < 50) {
+            data.cell.styles.textColor = [185, 28, 28];
+          }
+        }
+      },
+    });
+  }
 
   // Footer / Page numbers / Legend helper
   const totalPages = (doc as any).internal.getNumberOfPages();
