@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileSpreadsheet, Upload, Download, GraduationCap, LogOut, ShieldCheck, Database, Save, BarChart3, RefreshCw } from 'lucide-react';
+import { FileSpreadsheet, Upload, Download, GraduationCap, LogOut, ShieldCheck, Database, Save, BarChart3, RefreshCw, DatabaseBackup } from 'lucide-react';
 import { StudentRecord, AuthUser } from '../types';
 import { isStudentPass } from '../utils/statusHelper';
 import { ExportFormatModal } from './ExportFormatModal';
@@ -17,6 +17,7 @@ interface HeaderProps {
   onReloadDatabase: () => void;
   onClearAll: () => void;
   onSignOut: () => void;
+  onOpenBackup: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -32,6 +33,7 @@ export const Header: React.FC<HeaderProps> = ({
   onReloadDatabase,
   onClearAll,
   onSignOut,
+  onOpenBackup,
 }) => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const totalStudents = records.length;
@@ -178,6 +180,14 @@ export const Header: React.FC<HeaderProps> = ({
                 className="inline-flex items-center justify-center p-2 sm:p-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-600 hover:text-slate-800 transition-colors shadow-xs cursor-pointer shrink-0"
               >
                 <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+
+              <button
+                onClick={onOpenBackup}
+                title="Database Backup"
+                className="inline-flex items-center justify-center p-2 sm:p-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-600 hover:text-slate-800 transition-colors shadow-xs cursor-pointer shrink-0"
+              >
+                <DatabaseBackup className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
             </div>
 

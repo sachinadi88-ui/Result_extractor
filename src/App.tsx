@@ -7,6 +7,7 @@ import { LoginPage } from './components/LoginPage';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { StatusModal } from './components/StatusModal';
 import { SignOutConfirmModal } from './components/SignOutConfirmModal';
+import { BackupModal } from './components/BackupModal';
 import { StudentRecord, AuthUser } from './types';
 import { getStoredStudentRecords, saveStudentRecords, exportToExcel } from './utils/storage';
 import { exportToPDF, exportToPDFLandscape } from './utils/pdfExport';
@@ -46,6 +47,7 @@ export default function App() {
   const [isClearAllConfirmOpen, setIsClearAllConfirmOpen] = useState<boolean>(false);
   const [isStatusOpen, setIsStatusOpen] = useState<boolean>(false);
   const [isSignOutConfirmOpen, setIsSignOutConfirmOpen] = useState<boolean>(false);
+  const [isBackupOpen, setIsBackupOpen] = useState<boolean>(false);
 
   // Sync session & load user records ONLY from Firebase Firestore when currentUser changes
   useEffect(() => {
@@ -294,6 +296,7 @@ export default function App() {
         onReloadDatabase={handleReloadDatabase}
         onClearAll={handleClearAll}
         onSignOut={handleSignOut}
+        onOpenBackup={() => setIsBackupOpen(true)}
       />
 
       {/* Main Container */}
@@ -402,6 +405,18 @@ export default function App() {
         userEmail={currentUser?.email}
         onConfirm={confirmSignOut}
         onCancel={() => setIsSignOutConfirmOpen(false)}
+      />
+
+      {/* Database Backup Modal (Empty/Reserved for later) */}
+      <BackupModal
+        isOpen={isBackupOpen}
+        onClose={() => setIsBackupOpen(false)}
+        records={records}
+        currentUser={currentUser}
+        onRestoreSuccess={(updatedRecords) => {
+          setRecords(updatedRecords);
+          showToast('Successfully restored database backup!');
+        }}
       />
 
       {/* Floating Toast Notification */}
