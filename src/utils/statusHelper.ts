@@ -150,4 +150,27 @@ export const getStudentTotalMarks = (student: StudentRecord): { display: string;
   return { display: `${sum}`, sum, hasValid: true };
 };
 
+export interface DepartmentInfo {
+  code: string;
+  short: string;
+  long: string;
+}
+
+export function getDepartmentFromUsn(usn?: string): DepartmentInfo | null {
+  if (!usn || usn.length < 7) return null;
+  const code = usn.substring(5, 7).toUpperCase();
+  switch (code) {
+    case 'CS':
+      return { code: 'CS', short: 'CSE', long: 'Computer Science and Engg' };
+    case 'EC':
+      return { code: 'EC', short: 'ECE', long: 'Electronics and Communication Engg' };
+    case 'CV':
+      return { code: 'CV', short: 'CIVIL', long: 'Civil Engg' };
+    case 'ME':
+      return { code: 'ME', short: 'MECH', long: 'Mechanical Engg' };
+    default:
+      return null;
+  }
+}
+
 

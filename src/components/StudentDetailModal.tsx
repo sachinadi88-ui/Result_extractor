@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, Plus, Edit2, FileText, CheckCircle2, XCircle, Eye, ChevronRight, Sparkles, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
+import { X, Save, Trash2, Plus, Edit2, FileText, CheckCircle2, XCircle, Eye, ChevronRight, Sparkles, Loader2, RefreshCw, AlertCircle, Lock } from 'lucide-react';
 import { StudentRecord, SubjectResult } from '../types';
-import { isStudentPass, getEffectiveStatus } from '../utils/statusHelper';
+import { isStudentPass, getEffectiveStatus, getDepartmentFromUsn } from '../utils/statusHelper';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 
 interface StudentDetailModalProps {
@@ -10,6 +10,8 @@ interface StudentDetailModalProps {
   onClose: () => void;
   onSave: (updatedStudent: StudentRecord) => void;
   onDelete: (id: string) => void;
+  isLocked?: boolean;
+  onUnlockRequired?: () => void;
 }
 
 export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
@@ -18,6 +20,8 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   onClose,
   onSave,
   onDelete,
+  isLocked = false,
+  onUnlockRequired,
 }) => {
   const [formData, setFormData] = useState<StudentRecord | null>(null);
   const [showOriginalImage, setShowOriginalImage] = useState<boolean>(true);
@@ -107,18 +111,17 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
       ) || extractedStudents[0];
 
       // Merge student metadata
-      setFormData((prev) => {
-        if (!prev) return null;
+      let updatedRecordToSave: StudentRecord | null = null;
 
-        const mergedUSN = match.usn || prev.usn;
-        const mergedName = match.name || prev.name;
-        const mergedCollege = match.college || prev.college;
-        const mergedSemester = match.semester || prev.semester;
-        const mergedSgpa = match.sgpa || prev.sgpa;
-        const mergedStatus = match.status || prev.status;
+      if (formData) {
+        const mergedUSN = match.usn || formData.usn;
+        const mergedName = match.name || formData.name;
+        const mergedCollege = match.college || formData.college;
+        const mergedSemester = match.semester || formData.semester;
+        const mergedSgpa = match.sgpa || formData.sgpa;
 
         // Merge subjects intelligently
-        const updatedSubjects = [...prev.subjects];
+        const updatedSubjects = [...formData.subjects];
         const extSubjects: SubjectResult[] = match.subjects || [];
 
         extSubjects.forEach((extSub) => {
@@ -158,17 +161,28 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
           }
         });
 
-        return {
-          ...prev,
+        const tempDoc: StudentRecord = {
+          ...formData,
           usn: mergedUSN,
           name: mergedName,
           college: mergedCollege,
           semester: mergedSemester,
           sgpa: mergedSgpa,
-          status: mergedStatus,
           subjects: updatedSubjects,
         };
-      });
+
+        const finalStatus = getEffectiveStatus(tempDoc);
+
+        updatedRecordToSave = {
+          ...tempDoc,
+          status: finalStatus,
+        };
+
+        setFormData(updatedRecordToSave);
+
+        // Immediately trigger onSave so the re-analyzed data is automatically synced & saved to Firestore
+        onSave(updatedRecordToSave);
+      }
 
       setReanalyzeStatus({
         type: 'success',
@@ -220,9 +234,9 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 <button
                   type="button"
                   onClick={handleReanalyzeImage}
-                  disabled={isReanalyzing}
+                  disabled={isReanalyzing || isLocked}
                   className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 transition-colors flex items-center space-x-1.5 shadow-sm cursor-pointer"
-                  title="Re-scan marks card image with AI to extract missing values or external marks"
+                  title={isLocked ? "Re-analysis is disabled when the database is locked" : "Re-scan marks card image with AI to extract missing values or external marks"}
                 >
                   {isReanalyzing ? (
                     <>
@@ -262,6 +276,26 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
         {/* Content Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
 
+          {isLocked && (
+            <div className="p-3 sm:p-3.5 rounded-xl bg-rose-50 border border-rose-100 text-rose-800 text-xs flex items-center justify-between animate-fade-in shadow-2xs">
+              <div className="flex items-center space-x-2.5">
+                <Lock className="w-4 h-4 text-rose-500 shrink-0 animate-pulse" />
+                <span className="font-semibold">
+                  This record is read-only because the database is currently locked.
+                </span>
+              </div>
+              {onUnlockRequired && (
+                <button
+                  type="button"
+                  onClick={onUnlockRequired}
+                  className="px-2.5 py-1 rounded-md bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] tracking-wide transition-all shadow-3xs cursor-pointer"
+                >
+                  Unlock System
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Re-analyze status message */}
           {reanalyzeStatus && (
             <div className={`p-3 rounded-lg text-xs font-medium flex items-center justify-between transition-all ${
@@ -300,7 +334,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                   <button
                     type="button"
                     onClick={handleReanalyzeImage}
-                    disabled={isReanalyzing}
+                    disabled={isReanalyzing || isLocked}
                     className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded transition-colors flex items-center space-x-1 cursor-pointer disabled:opacity-50"
                   >
                     <Sparkles className="w-3 h-3" />
@@ -339,10 +373,26 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     <input
                       type="text"
                       required
+                      disabled={isLocked}
                       value={formData.usn}
                       onChange={(e) => handleFieldChange('usn', e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-900 font-mono font-bold focus:outline-none focus:border-emerald-600 focus:bg-white"
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-900 font-mono font-bold focus:outline-none focus:border-emerald-600 focus:bg-white disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                     />
+                    {formData.usn && (
+                      <div className="mt-1">
+                        {(() => {
+                          const dept = getDepartmentFromUsn(formData.usn);
+                          return dept ? (
+                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold text-[11px]">
+                              <span>Dept: {dept.short}</span>
+                              <span className="text-slate-500 font-normal">({dept.long})</span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-[10px]">Dept: Not recognized (chars 6-7)</span>
+                          );
+                        })()}
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -350,9 +400,10 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     <input
                       type="text"
                       required
+                      disabled={isLocked}
                       value={formData.name}
                       onChange={(e) => handleFieldChange('name', e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-900 font-bold focus:outline-none focus:border-emerald-600"
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-900 font-bold focus:outline-none focus:border-emerald-600 disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                     />
                   </div>
 
@@ -360,9 +411,10 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     <label className="block text-slate-600 mb-1 font-medium">College / Institution</label>
                     <input
                       type="text"
+                      disabled={isLocked}
                       value={formData.college || ''}
                       onChange={(e) => handleFieldChange('college', e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 focus:outline-none focus:border-emerald-600"
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 focus:outline-none focus:border-emerald-600 disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                     />
                   </div>
 
@@ -370,9 +422,10 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     <label className="block text-slate-600 mb-1 font-medium">Semester / Exam</label>
                     <input
                       type="text"
+                      disabled={isLocked}
                       value={formData.semester || ''}
                       onChange={(e) => handleFieldChange('semester', e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 focus:outline-none focus:border-emerald-600"
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 focus:outline-none focus:border-emerald-600 disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                     />
                   </div>
 
@@ -380,9 +433,10 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     <label className="block text-slate-600 mb-1 font-medium">SGPA / CGPA</label>
                     <input
                       type="text"
+                      disabled={isLocked}
                       value={formData.sgpa || ''}
                       onChange={(e) => handleFieldChange('sgpa', e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 focus:outline-none focus:border-emerald-600"
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 focus:outline-none focus:border-emerald-600 disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                     />
                   </div>
 
@@ -390,8 +444,9 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     <label className="block text-slate-600 mb-1 font-medium">Overall Status</label>
                     <select
                       value={getEffectiveStatus(formData)}
+                      disabled={isLocked}
                       onChange={(e) => handleFieldChange('status', e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 focus:outline-none focus:border-emerald-600 font-semibold"
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 focus:outline-none focus:border-emerald-600 font-semibold disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                     >
                       <option value="PASS">PASS</option>
                       <option value="FAIL">FAIL</option>
@@ -409,14 +464,16 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                   <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                     Extracted Subjects ({formData.subjects.length})
                   </h3>
-                  <button
-                    type="button"
-                    onClick={handleAddSubject}
-                    className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold border border-emerald-200 transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Subject</span>
-                  </button>
+                  {!isLocked && (
+                    <button
+                      type="button"
+                      onClick={handleAddSubject}
+                      className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold border border-emerald-200 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Subject</span>
+                    </button>
+                  )}
                 </div>
 
                 <div className="overflow-x-auto border border-slate-200 rounded-lg bg-white">
@@ -429,7 +486,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                         <th className="px-3 py-2 w-20">External</th>
                         <th className="px-3 py-2 w-20">Total</th>
                         <th className="px-3 py-2 w-24">Result</th>
-                        <th className="px-3 py-2 w-10 text-center">Action</th>
+                        {!isLocked && <th className="px-3 py-2 w-10 text-center">Action</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -438,75 +495,83 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                           <td className="px-3 py-2">
                             <input
                               type="text"
+                              disabled={isLocked}
                               value={sub.subjectCode || ''}
                               onChange={(e) => handleSubjectChange(idx, 'subjectCode', e.target.value)}
                               placeholder="Code"
-                              className="w-full px-2 py-1 rounded bg-slate-50 border border-slate-200 font-mono text-slate-800 focus:border-emerald-600 focus:bg-white focus:outline-none"
+                              className="w-full px-2 py-1 rounded bg-slate-50 border border-slate-200 font-mono text-slate-800 focus:border-emerald-600 focus:bg-white focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                             />
                           </td>
                           <td className="px-3 py-2">
                             <input
                               type="text"
+                              disabled={isLocked}
                               value={sub.subjectName}
                               onChange={(e) => handleSubjectChange(idx, 'subjectName', e.target.value)}
                               required
                               placeholder="Subject Name"
-                              className="w-full px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-900 font-medium focus:border-emerald-600 focus:bg-white focus:outline-none"
+                              className="w-full px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-900 font-medium focus:border-emerald-600 focus:bg-white focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                             />
                           </td>
                           <td className="px-3 py-2">
                             <input
                               type="text"
+                              disabled={isLocked}
                               value={sub.internalMarks || ''}
                               onChange={(e) => handleSubjectChange(idx, 'internalMarks', e.target.value)}
                               placeholder="Int"
-                              className="w-full px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-800 font-mono focus:border-emerald-600 focus:bg-white focus:outline-none"
+                              className="w-full px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-800 font-mono focus:border-emerald-600 focus:bg-white focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                             />
                           </td>
                           <td className="px-3 py-2">
                             <input
                               type="text"
+                              disabled={isLocked}
                               value={sub.externalMarks || ''}
                               onChange={(e) => handleSubjectChange(idx, 'externalMarks', e.target.value)}
                               placeholder="Ext"
-                              className="w-full px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-800 font-mono focus:border-emerald-600 focus:bg-white focus:outline-none"
+                              className="w-full px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-800 font-mono focus:border-emerald-600 focus:bg-white focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                             />
                           </td>
                           <td className="px-3 py-2">
                             <input
                               type="text"
+                              disabled={isLocked}
                               value={sub.totalMarks || ''}
                               onChange={(e) => handleSubjectChange(idx, 'totalMarks', e.target.value)}
                               placeholder="Total"
-                              className="w-full px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-800 font-mono font-bold focus:border-emerald-600 focus:bg-white focus:outline-none"
+                              className="w-full px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-800 font-mono font-bold focus:border-emerald-600 focus:bg-white focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                             />
                           </td>
                           <td className="px-3 py-2">
                             <input
                               type="text"
+                              disabled={isLocked}
                               value={sub.result || ''}
                               onChange={(e) => handleSubjectChange(idx, 'result', e.target.value)}
                               required
                               placeholder="PASS / FAIL"
-                              className={`w-full px-2 py-1 rounded border font-bold focus:outline-none ${
+                              className={`w-full px-2 py-1 rounded border font-bold focus:outline-none disabled:cursor-not-allowed ${
                                 (sub.result || '').toUpperCase().includes('PASS') || sub.result === 'P'
-                                  ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                                  ? 'text-emerald-700 bg-emerald-50 border-emerald-200 disabled:bg-emerald-50/50'
                                   : (sub.result || '').toUpperCase().includes('FAIL') || sub.result === 'F'
-                                  ? 'text-red-700 bg-red-50 border-red-200'
-                                  : 'text-amber-700 bg-amber-50 border-amber-200'
+                                  ? 'text-red-700 bg-red-50 border-red-200 disabled:bg-red-50/50'
+                                  : 'text-amber-700 bg-amber-50 border-amber-200 disabled:bg-amber-50/50'
                               }`}
                             />
                           </td>
-                          <td className="px-3 py-2 text-center">
-                            <button
-                              type="button"
-                              onClick={() => setSubjectToDeleteIndex(idx)}
-                              className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                              title="Delete row"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
+                          {!isLocked && (
+                            <td className="px-3 py-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => setSubjectToDeleteIndex(idx)}
+                                className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                title="Delete row"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -520,30 +585,36 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
           {/* Footer Submit Buttons */}
           <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={() => setShowRecordDeleteConfirm(true)}
-              className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold border border-red-200 transition-colors cursor-pointer"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Delete Record</span>
-            </button>
+            {!isLocked ? (
+              <button
+                type="button"
+                onClick={() => setShowRecordDeleteConfirm(true)}
+                className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold border border-red-200 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Record</span>
+              </button>
+            ) : (
+              <div />
+            )}
 
             <div className="flex items-center space-x-3">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 rounded-lg bg-white hover:bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200 transition-colors cursor-pointer shadow-sm"
+                className="px-4 py-2 rounded-lg bg-white hover:bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200 transition-colors cursor-pointer shadow-sm animate-fade-in"
               >
-                Cancel
+                {isLocked ? 'Close' : 'Cancel'}
               </button>
-              <button
-                type="submit"
-                className="inline-flex items-center space-x-2 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer"
-              >
-                <Save className="w-4 h-4" />
-                <span>Save Changes</span>
-              </button>
+              {!isLocked && (
+                <button
+                  type="submit"
+                  className="inline-flex items-center space-x-2 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Save Changes</span>
+                </button>
+              )}
             </div>
           </div>
 

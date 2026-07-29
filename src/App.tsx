@@ -8,10 +8,11 @@ import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { StatusModal } from './components/StatusModal';
 import { SignOutConfirmModal } from './components/SignOutConfirmModal';
 import { BackupModal } from './components/BackupModal';
+import { PasswordModal } from './components/PasswordModal';
 import { StudentRecord, AuthUser } from './types';
 import { getStoredStudentRecords, saveStudentRecords, exportToExcel } from './utils/storage';
 import { exportToPDF, exportToPDFLandscape } from './utils/pdfExport';
-import { getEffectiveStatus } from './utils/statusHelper';
+import { getEffectiveStatus, getDepartmentFromUsn } from './utils/statusHelper';
 import {
   saveRecordToFirestore,
   saveMultipleRecordsToFirestore,
@@ -48,6 +49,12 @@ export default function App() {
   const [isStatusOpen, setIsStatusOpen] = useState<boolean>(false);
   const [isSignOutConfirmOpen, setIsSignOutConfirmOpen] = useState<boolean>(false);
   const [isBackupOpen, setIsBackupOpen] = useState<boolean>(false);
+  
+  // Security locks (Default to locked unless explicitly unlocked by typing password)
+  const [isLocked, setIsLocked] = useState<boolean>(() => {
+    return localStorage.getItem('vtu_database_locked') !== 'false';
+  });
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState<boolean>(false);
 
   // Sync session & load user records ONLY from Firebase Firestore when currentUser changes
   useEffect(() => {
@@ -96,11 +103,40 @@ export default function App() {
     showToast('Successfully signed out.');
   };
 
+  // Lock and Unlock handlers
+  const handleLock = () => {
+    setIsLocked(true);
+    localStorage.setItem('vtu_database_locked', 'true');
+    showToast('Database locked. Editing, deletion, and uploading are now restricted.');
+  };
+
+  const handleUnlockSuccess = () => {
+    setIsLocked(false);
+    localStorage.setItem('vtu_database_locked', 'false');
+    setIsPasswordModalOpen(false);
+    showToast('System unlocked successfully! Access granted.');
+  };
+
+  const handleOpenUpload = () => {
+    if (isLocked) {
+      setIsPasswordModalOpen(true);
+      showToast('Please unlock the system to add or upload screenshots.');
+    } else {
+      setIsUploadOpen(true);
+    }
+  };
+
   const handleExtractionSuccess = async (
     newStudents: Omit<StudentRecord, 'id' | 'uploadedAt'>[],
     imageBase64: string
   ) => {
     if (!currentUser) return;
+    
+    if (isLocked) {
+      setIsPasswordModalOpen(true);
+      showToast('Action Denied: System is currently locked.');
+      return;
+    }
 
     const createdRecords: StudentRecord[] = newStudents.map((s, idx) => ({
       ...s,
@@ -127,6 +163,11 @@ export default function App() {
   };
 
   const handleSaveStudent = async (updated: StudentRecord) => {
+    if (isLocked) {
+      setIsPasswordModalOpen(true);
+      showToast('System locked: Saving student details is disabled.');
+      return;
+    }
     setRecords((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
     if (selectedStudent && selectedStudent.id === updated.id) {
       setSelectedStudent(updated);
@@ -147,6 +188,11 @@ export default function App() {
   };
 
   const handleDeleteStudent = async (id: string) => {
+    if (isLocked) {
+      setIsPasswordModalOpen(true);
+      showToast('System locked: Deleting student details is disabled.');
+      return;
+    }
     setRecords((prev) => prev.filter((r) => r.id !== id));
     if (selectedStudent && selectedStudent.id === id) {
       setIsDetailOpen(false);
@@ -166,11 +212,21 @@ export default function App() {
   };
 
   const handleClearAll = () => {
+    if (isLocked) {
+      setIsPasswordModalOpen(true);
+      showToast('System locked: Clearing records is disabled.');
+      return;
+    }
     setIsClearAllConfirmOpen(true);
   };
 
   const confirmClearAll = async () => {
     if (!currentUser) return;
+    if (isLocked) {
+      setIsPasswordModalOpen(true);
+      showToast('System locked: Clearing records is disabled.');
+      return;
+    }
     setIsSyncingFirebase(true);
     try {
       const recordIds = records.map((r) => r.id);
@@ -213,6 +269,11 @@ export default function App() {
 
   const handleSaveToDatabase = async () => {
     if (!currentUser) return;
+    if (isLocked) {
+      setIsPasswordModalOpen(true);
+      showToast('System locked: Saving to database is disabled.');
+      return;
+    }
     if (records.length === 0) {
       showToast('No student records to save.');
       return;
@@ -279,6 +340,15 @@ export default function App() {
   }
 
   // IF LOGGED IN: Render Full Extraction Dashboard
+  const deptLongNamesSet = new Set<string>();
+  records.forEach((r) => {
+    const dept = getDepartmentFromUsn(r.usn);
+    if (dept) {
+      deptLongNamesSet.add(dept.long);
+    }
+  });
+  const deptLongNameDisplay = deptLongNamesSet.size > 0 ? Array.from(deptLongNamesSet).join(', ') : '';
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans antialiased">
       
@@ -286,9 +356,9 @@ export default function App() {
       <Header
         records={records}
         currentUser={currentUser}
-        onOpenUpload={() => setIsUploadOpen(true)}
+        onOpenUpload={handleOpenUpload}
         onOpenStatus={() => setIsStatusOpen(true)}
-        onPasteClipboard={() => setIsUploadOpen(true)}
+        onPasteClipboard={handleOpenUpload}
         onExportExcel={handleExportExcel}
         onExportPDF={handleExportPDF}
         onExportPDFLandscape={handleExportPDFLandscape}
@@ -297,13 +367,16 @@ export default function App() {
         onClearAll={handleClearAll}
         onSignOut={handleSignOut}
         onOpenBackup={() => setIsBackupOpen(true)}
+        isLocked={isLocked}
+        onLock={handleLock}
+        onUnlockClick={() => setIsPasswordModalOpen(true)}
       />
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
         {/* Info & Account Isolation Status Banner */}
-        <div className="mb-6 p-3.5 sm:p-4 rounded-xl bg-white border border-slate-200 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4 shadow-xs">
+        <div className="hidden md:flex mb-6 p-3.5 sm:p-4 rounded-xl bg-white border border-slate-200 flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4 shadow-xs">
           <div className="flex items-start sm:items-center space-x-3 text-xs text-slate-700 w-full md:w-auto">
             <div className="hidden sm:flex items-center space-x-3 shrink-0">
               <img
@@ -324,6 +397,11 @@ export default function App() {
                   <span className="hidden xs:inline">{isSyncingFirebase ? 'Syncing...' : 'Firebase Active'}</span>
                   <span className="xs:hidden">{isSyncingFirebase ? 'Sync' : 'Active'}</span>
                 </span>
+                {deptLongNameDisplay && (
+                  <span className="hidden md:inline font-semibold text-indigo-800 text-[11px] ml-1">
+                    {deptLongNameDisplay}
+                  </span>
+                )}
               </div>
               <p className="text-slate-500 text-[11px] sm:text-xs leading-normal">
                 Upload university mark sheet screenshots. AI extracts <strong className="text-slate-800">USN</strong>, <strong className="text-slate-800">Name</strong>, <strong className="text-slate-800">Subjects</strong>, <strong className="text-slate-800">Marks</strong>, and <strong className="text-slate-800">Results</strong> into structured rows tied to your account.
@@ -332,7 +410,7 @@ export default function App() {
           </div>
 
           <button
-            onClick={() => setIsUploadOpen(true)}
+            onClick={handleOpenUpload}
             className="w-full md:w-auto inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shrink-0 transition-colors shadow-xs cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -348,7 +426,7 @@ export default function App() {
             setIsDetailOpen(true);
           }}
           onDeleteStudent={handleDeleteStudent}
-          onOpenUpload={() => setIsUploadOpen(true)}
+          onOpenUpload={handleOpenUpload}
         />
 
       </main>
@@ -380,6 +458,8 @@ export default function App() {
         student={selectedStudent}
         onSave={handleSaveStudent}
         onDelete={handleDeleteStudent}
+        isLocked={isLocked}
+        onUnlockRequired={() => setIsPasswordModalOpen(true)}
       />
 
       {/* Clear All Confirmation Modal */}
@@ -417,23 +497,16 @@ export default function App() {
           setRecords(updatedRecords);
           showToast('Successfully restored database backup!');
         }}
+        isLocked={isLocked}
+        onUnlockRequired={() => setIsPasswordModalOpen(true)}
       />
 
-      {/* Floating Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-semibold shadow-xl flex items-center space-x-2 animate-bounce">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
-      {/* Syncing Toast Notification */}
-      {isSyncingFirebase && (
-        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-semibold shadow-xl flex items-center space-x-3 animate-bounce">
-          <div className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping shrink-0" />
-          <span className="text-slate-200">Syncing Data- Please Wait</span>
-        </div>
-      )}
+      {/* Security Password Validation Modal */}
+      <PasswordModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+        onSuccess={handleUnlockSuccess}
+      />
 
       {/* Synchronization Full-screen Backdrop & Loader Overlay */}
       {isSyncingFirebase && (
@@ -470,6 +543,22 @@ export default function App() {
               Database Sync
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Floating Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-semibold shadow-xl flex items-center space-x-2 animate-bounce">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Syncing Toast Notification - Rendered on top of backdrop (z-[60]) */}
+      {isSyncingFirebase && (
+        <div className="fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-semibold shadow-xl flex items-center space-x-3 animate-bounce">
+          <div className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping shrink-0" />
+          <span className="text-slate-200">Syncing Data- Please Wait</span>
         </div>
       )}
 

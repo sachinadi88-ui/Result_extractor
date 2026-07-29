@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, DatabaseBackup, Download, Upload, Loader2, CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import { X, DatabaseBackup, Download, Upload, Loader2, CheckCircle2, AlertCircle, Info, Lock } from 'lucide-react';
 import { StudentRecord, AuthUser } from '../types';
 import { saveMultipleRecordsToFirestore } from '../lib/firebase';
 
@@ -9,6 +9,8 @@ interface BackupModalProps {
   records: StudentRecord[];
   currentUser: AuthUser | null;
   onRestoreSuccess: (updatedRecords: StudentRecord[]) => void;
+  isLocked: boolean;
+  onUnlockRequired: () => void;
 }
 
 export const BackupModal: React.FC<BackupModalProps> = ({
@@ -17,6 +19,8 @@ export const BackupModal: React.FC<BackupModalProps> = ({
   records,
   currentUser,
   onRestoreSuccess,
+  isLocked,
+  onUnlockRequired,
 }) => {
   const [isRestoring, setIsRestoring] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
@@ -186,6 +190,16 @@ export const BackupModal: React.FC<BackupModalProps> = ({
           </div>
         )}
 
+        {/* Lock Warning Banner */}
+        {currentUser && isLocked && (
+          <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-100 text-rose-800 text-xs flex items-start space-x-2.5 animate-fade-in">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600 animate-pulse" />
+            <div className="leading-relaxed">
+              <strong className="font-bold">Database Locked:</strong> Restoration requires verification. Please click <strong>"Restore Backup"</strong> to authenticate.
+            </div>
+          </div>
+        )}
+
         {/* Action Controls */}
         <div className="grid grid-cols-2 gap-3.5">
           {/* Download Button */}
@@ -211,27 +225,37 @@ export const BackupModal: React.FC<BackupModalProps> = ({
 
           {/* Upload Button */}
           <button
-            onClick={handleUploadClick}
+            onClick={isLocked ? onUnlockRequired : handleUploadClick}
             disabled={!currentUser || isRestoring}
             className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all duration-200 text-center cursor-pointer group ${
               !currentUser || isRestoring
                 ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed'
+                : isLocked
+                ? 'bg-rose-50/20 border-rose-100 hover:bg-rose-50/40 hover:border-rose-200 text-rose-800'
                 : 'bg-white border-slate-200 text-slate-700 hover:border-emerald-200 hover:bg-emerald-50/30'
             }`}
           >
             <div className={`p-2.5 rounded-lg mb-2 transition-colors duration-200 ${
               !currentUser || isRestoring
                 ? 'bg-slate-100 text-slate-400'
+                : isLocked
+                ? 'bg-rose-100 text-rose-600'
                 : 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100/70'
             }`}>
               {isRestoring ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
+              ) : isLocked ? (
+                <Lock className="w-5 h-5 animate-pulse" />
               ) : (
                 <Upload className="w-5 h-5" />
               )}
             </div>
-            <span className="text-xs font-bold text-slate-800">Restore Backup</span>
-            <span className="text-[10px] text-slate-400 mt-0.5">Upload a JSON backup file</span>
+            <span className="text-xs font-bold text-slate-800">
+              {isLocked ? 'Unlock & Restore' : 'Restore Backup'}
+            </span>
+            <span className="text-[10px] text-slate-400 mt-0.5">
+              {isLocked ? 'Enter password to import' : 'Upload a JSON backup file'}
+            </span>
           </button>
 
           {/* Hidden File Input */}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { FileSpreadsheet, Upload, Download, GraduationCap, LogOut, ShieldCheck, Database, Save, BarChart3, RefreshCw, DatabaseBackup } from 'lucide-react';
+import { FileSpreadsheet, Upload, Download, GraduationCap, LogOut, ShieldCheck, Database, Save, BarChart3, RefreshCw, DatabaseBackup, Lock, Unlock } from 'lucide-react';
 import { StudentRecord, AuthUser } from '../types';
-import { isStudentPass } from '../utils/statusHelper';
+import { isStudentPass, getDepartmentFromUsn } from '../utils/statusHelper';
 import { ExportFormatModal } from './ExportFormatModal';
 
 interface HeaderProps {
@@ -18,6 +18,9 @@ interface HeaderProps {
   onClearAll: () => void;
   onSignOut: () => void;
   onOpenBackup: () => void;
+  isLocked: boolean;
+  onLock: () => void;
+  onUnlockClick: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -34,6 +37,9 @@ export const Header: React.FC<HeaderProps> = ({
   onClearAll,
   onSignOut,
   onOpenBackup,
+  isLocked,
+  onLock,
+  onUnlockClick,
 }) => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const totalStudents = records.length;
@@ -53,6 +59,14 @@ export const Header: React.FC<HeaderProps> = ({
     }
   });
   const totalSubjects = uniqueSubjectsSet.size;
+  const deptSet = new Set<string>();
+  records.forEach((r) => {
+    const dept = getDepartmentFromUsn(r.usn);
+    if (dept) {
+      deptSet.add(dept.short);
+    }
+  });
+  const deptDisplay = deptSet.size > 0 ? Array.from(deptSet).join(', ') : 'N/A';
   const passCount = records.filter(r => isStudentPass(r)).length;
   const passPercentage = totalStudents > 0 ? Math.round((passCount / totalStudents) * 100) : 0;
 
@@ -103,15 +117,20 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Quick Stats - Desktop (XL+) */}
           {totalStudents > 0 && (
-            <div className="hidden xl:flex items-center space-x-5 bg-slate-50 px-3.5 py-1.5 rounded-lg border border-slate-200 text-xs shrink-0">
+            <div className="hidden xl:flex items-center space-x-4 bg-slate-50 px-3.5 py-1.5 rounded-lg border border-slate-200 text-xs shrink-0">
               <div>
-                <span className="text-slate-500 block text-[11px]">User Records</span>
+                <span className="text-slate-500 block text-[11px]">Records</span>
                 <span className="text-sm font-bold text-slate-900">{totalStudents}</span>
               </div>
               <div className="h-6 w-px bg-slate-200" />
               <div>
-                <span className="text-slate-500 block text-[11px]">Extracted Subjects</span>
+                <span className="text-slate-500 block text-[11px]">Subjects</span>
                 <span className="text-sm font-bold text-emerald-600">{totalSubjects}</span>
+              </div>
+              <div className="h-6 w-px bg-slate-200" />
+              <div>
+                <span className="text-slate-500 block text-[11px]">Dept</span>
+                <span className="text-sm font-bold text-indigo-700 font-mono">Dept:{deptDisplay}</span>
               </div>
               <div className="h-6 w-px bg-slate-200" />
               <div>
@@ -123,12 +142,14 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Mobile Quick Stats Bar */}
           {totalStudents > 0 && (
-            <div className="flex xl:hidden items-center justify-around bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200/80 text-[11px] text-slate-600">
+            <div className="flex xl:hidden items-center justify-around bg-slate-50 px-1 py-1 rounded-md border border-slate-200/80 text-[11px] text-slate-600">
               <span><strong className="text-slate-900">{totalStudents}</strong> Records</span>
               <span className="text-slate-300">•</span>
               <span><strong className="text-emerald-700">{totalSubjects}</strong> Subjects</span>
               <span className="text-slate-300">•</span>
-              <span className="text-emerald-700 font-bold">{passPercentage}% Pass Rate</span>
+              <span className="font-mono text-indigo-700 font-bold">Dept:{deptDisplay}</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-emerald-800 font-bold">Pass: {passPercentage}%</span>
             </div>
           )}
 
@@ -180,6 +201,22 @@ export const Header: React.FC<HeaderProps> = ({
                 className="inline-flex items-center justify-center p-1.5 sm:p-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-600 hover:text-slate-800 transition-colors shadow-xs cursor-pointer shrink-0"
               >
                 <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+
+              <button
+                onClick={isLocked ? onUnlockClick : onLock}
+                title={isLocked ? "Database locked: click to unlock modifications (password required)" : "Database unlocked: click to lock modifications"}
+                className={`inline-flex items-center justify-center p-1.5 sm:p-2.5 rounded-lg border transition-colors shadow-xs cursor-pointer shrink-0 ${
+                  isLocked
+                    ? "bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-600 hover:text-rose-700"
+                    : "bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-600 hover:text-emerald-700"
+                }`}
+              >
+                {isLocked ? (
+                  <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-pulse" />
+                ) : (
+                  <Unlock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                )}
               </button>
 
               <button
