@@ -398,7 +398,7 @@ export default function App() {
                   <span className="xs:hidden">{isSyncingFirebase ? 'Sync' : 'Active'}</span>
                 </span>
                 {deptLongNameDisplay && (
-                  <span className="hidden md:inline font-semibold text-indigo-800 text-[11px] ml-1">
+                  <span className="hidden md:inline font-bold text-indigo-800 text-[15px] ml-1">
                     {deptLongNameDisplay}
                   </span>
                 )}
