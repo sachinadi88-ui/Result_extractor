@@ -67,6 +67,16 @@ export const Header: React.FC<HeaderProps> = ({
     }
   });
   const deptDisplay = deptSet.size > 0 ? Array.from(deptSet).join(', ') : 'N/A';
+
+  // Find semester number from records
+  let semesterNumber = '';
+  for (const rec of records) {
+    if (rec.semester) {
+      semesterNumber = String(rec.semester).trim();
+      break;
+    }
+  }
+
   const passCount = records.filter(r => isStudentPass(r)).length;
   const passPercentage = totalStudents > 0 ? Math.round((passCount / totalStudents) * 100) : 0;
 
@@ -130,7 +140,14 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="h-6 w-px bg-slate-200" />
               <div>
                 <span className="text-slate-500 block text-[11px]">Dept</span>
-                <span className="text-sm font-bold text-indigo-700 font-mono">{deptDisplay}</span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-bold text-indigo-700 font-mono">{deptDisplay}</span>
+                  {semesterNumber && (
+                    <span className="text-xs font-bold text-[#DC2626] font-mono bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100 uppercase tracking-tight">
+                      SEM : {semesterNumber}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="h-6 w-px bg-slate-200" />
               <div>
@@ -147,7 +164,12 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="text-slate-300">•</span>
               <span><strong className="text-emerald-700">{totalSubjects}</strong> Subjects</span>
               <span className="text-slate-300">•</span>
-              <span className="font-mono text-indigo-700 font-bold">Dept:{deptDisplay}</span>
+              <span className="font-mono text-indigo-700 font-bold">
+                Dept:{deptDisplay}
+                {semesterNumber && (
+                  <span className="ml-1.5 text-[#DC2626] font-bold">SEM:{semesterNumber}</span>
+                )}
+              </span>
               <span className="text-slate-300">•</span>
               <span className="text-emerald-800 font-bold">Pass: {passPercentage}%</span>
             </div>

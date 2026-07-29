@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { StudentRecord } from '../types';
-import { getEffectiveStatus, getStudentTotalMarks, isStudentPass, isSubjectPass } from './statusHelper';
+import { getEffectiveStatus, getStudentTotalMarks, isStudentPass, isSubjectPass, getDepartmentFromUsn } from './statusHelper';
 
 // Helper to convert the college logo crest to a base64 string for embedding
 function getLogoDataUrl(): Promise<string | null> {
@@ -61,13 +61,32 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
   const totalPass = records.filter((r) => isStudentPass(r)).length;
   const passPercentage = records.length > 0 ? Math.round((totalPass / records.length) * 1000) / 10 : 0;
 
+  // Find semester number from records
+  let semesterNumber = '';
+  for (const rec of records) {
+    if (rec.semester) {
+      semesterNumber = String(rec.semester).trim();
+      break;
+    }
+  }
+
   // Try to load college logo
   const logoUrl = await getLogoDataUrl();
 
   // Get first student's college/examination as title if present
   const societyName = "HKE Society's";
   const collegeName = "Sir M. Visvesvaraya College of Engineering, Raichur";
-  const examName = records[0]?.examination || 'ACADEMIC EXAMINATION REPORT';
+  
+  // Find the department long name based on records
+  let departmentLongName = '';
+  for (const rec of records) {
+    const dept = getDepartmentFromUsn(rec.usn);
+    if (dept) {
+      departmentLongName = dept.long;
+      break;
+    }
+  }
+  const examName = departmentLongName || records[0]?.examination || 'ACADEMIC EXAMINATION REPORT';
 
   // --- HEADER SECTION ---
   let headerStartY = 11;
@@ -87,14 +106,16 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
     doc.setTextColor(30, 41, 59); // Slate 800
     doc.text(collegeName, 34, headerStartY + 10, { maxWidth: 155 });
     
-    // Examination name
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(9.5);
-    doc.setTextColor(71, 85, 105); // Slate 600
-    doc.text(examName, 34, headerStartY + 16, { maxWidth: 155 });
+    // Examination name (Department Long Name) - Bold and Increased Font Size
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(30, 41, 59); // Slate 800
+    doc.text(examName, 34, headerStartY + 15, { maxWidth: 155 });
 
     doc.setFontSize(7.5);
-    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 34, headerStartY + 21);
+    doc.setFont('Helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 34, headerStartY + 19);
   } else {
     // HKE Society's (top, small)
     doc.setFont('Helvetica', 'bold');
@@ -108,14 +129,16 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
     doc.setTextColor(30, 41, 59); // Slate 800
     doc.text(collegeName, 15, headerStartY + 10, { maxWidth: 180 });
     
-    // Examination name
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(71, 85, 105); // Slate 600
-    doc.text(examName, 15, headerStartY + 16, { maxWidth: 180 });
+    // Examination name (Department Long Name) - Bold and Increased Font Size
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(11.5);
+    doc.setTextColor(30, 41, 59); // Slate 800
+    doc.text(examName, 15, headerStartY + 15, { maxWidth: 180 });
 
     doc.setFontSize(8);
-    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 15, headerStartY + 21);
+    doc.setFont('Helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 15, headerStartY + 19);
   }
 
   // Draw thin header divider
@@ -127,7 +150,8 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(15, 23, 42); // Dark Slate
-  doc.text('OVERALL COLLEGE PERFORMANCE SUMMARY', 15, 45);
+  const semSuffix = semesterNumber ? `   •   SEM : ${semesterNumber}` : '';
+  doc.text(`RESULT ANALYSIS SUMMARY${semSuffix}`, 15, 45);
 
   // Box 1: Enrolled
   doc.setFillColor(248, 250, 252); // Slate 50
@@ -199,7 +223,7 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(15, 23, 42);
-  doc.text('TOP ACADEMIC PERFORMERS 🏆', 15, 82);
+  doc.text('TOP ACADEMIC PERFORMERS', 15, 82);
 
   if (topStudents.length > 0) {
     autoTable(doc, {
@@ -450,7 +474,17 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
 
   const societyName = "HKE Society's";
   const collegeName = "Sir M. Visvesvaraya College of Engineering, Raichur";
-  const examName = records[0]?.examination || 'ACADEMIC EXAMINATION REPORT';
+  
+  // Find the department long name based on records
+  let departmentLongName = '';
+  for (const rec of records) {
+    const dept = getDepartmentFromUsn(rec.usn);
+    if (dept) {
+      departmentLongName = dept.long;
+      break;
+    }
+  }
+  const examName = departmentLongName || records[0]?.examination || 'ACADEMIC EXAMINATION REPORT';
 
   // --- HEADER SECTION (LANDSCAPE) ---
   let headerStartY = 10;
@@ -470,13 +504,15 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
     doc.setTextColor(30, 41, 59); // Slate 800
     doc.text(collegeName, 32, headerStartY + 8, { maxWidth: 225 });
     
-    // Examination name
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(71, 85, 105); // Slate 600
+    // Examination name (Department Long Name) - Bold and Increased Font Size
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(30, 41, 59); // Slate 800
     doc.text(examName, 32, headerStartY + 13, { maxWidth: 225 });
 
     doc.setFontSize(7.5);
+    doc.setFont('Helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
     doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 32, headerStartY + 17);
   } else {
     // HKE Society's
@@ -491,13 +527,15 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
     doc.setTextColor(30, 41, 59);
     doc.text(collegeName, 15, headerStartY + 8, { maxWidth: 260 });
     
-    // Examination name
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(9.5);
-    doc.setTextColor(71, 85, 105);
+    // Examination name (Department Long Name) - Bold and Increased Font Size
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(11.5);
+    doc.setTextColor(30, 41, 59);
     doc.text(examName, 15, headerStartY + 13, { maxWidth: 260 });
 
     doc.setFontSize(7.5);
+    doc.setFont('Helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
     doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 15, headerStartY + 17);
   }
 
@@ -513,7 +551,18 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(71, 85, 105); // Slate 600
-  doc.text(`COLLEGE PERFORMANCE SUMMARY   •   Total Enrolled: ${records.length}   |   Passed: ${totalPass}   |   Pass Percentage: ${passPercentage}%`, 18, headerStartY + 27.5);
+
+  // Find semester number from records
+  let semesterNumber = '';
+  for (const rec of records) {
+    if (rec.semester) {
+      semesterNumber = String(rec.semester).trim();
+      break;
+    }
+  }
+
+  const semSuffix = semesterNumber ? `   •   Sem : ${semesterNumber}` : '';
+  doc.text(`Result Analysis${semSuffix}   •   Total Enrolled: ${records.length}   |   Passed: ${totalPass}   |   Pass Percentage: ${passPercentage}%`, 18, headerStartY + 27.5);
 
   // Find all unique subjects in insertion order (same as Excel sheet)
   const uniqueSubjectsMap = new Map<string, { code: string; name: string }>();
