@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112.64" fill="#4f46e5" />
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#3730a3" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112.64" fill="url(#grad)" />
+  <!-- Academic Cap & Graduation Chart Icon -->
+  <g transform="translate(76.8, 76.8) scale(2.1333333333333333)">
+    <!-- Graduation Cap -->
+    <path d="M120 30 L210 75 L120 120 L30 75 Z" fill="#ffffff" opacity="0.95"/>
+    <path d="M210 75 L210 135 L195 135 L195 82.5 Z" fill="#e0e7ff"/>
+    <path d="M60 90 L60 150 C60 175 180 175 180 150 L180 90" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
+    <!-- Analytics Chart Bars -->
+    <rect x="75" y="125" width="20" height="35" rx="4" fill="#38bdf8"/>
+    <rect x="110" y="105" width="20" height="55" rx="4" fill="#818cf8"/>
+    <rect x="145" y="85" width="20" height="75" rx="4" fill="#4ade80"/>
+  </g>
+</svg>
