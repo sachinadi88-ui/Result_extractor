@@ -161,7 +161,7 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
               <div className="h-6 w-px bg-slate-200" />
               <div>
-                <span className="text-slate-500 block text-[11px]">Dept</span>
+                <span className="text-slate-500 block text-[11px]">Department</span>
                 <div className="flex items-center space-x-2">
                   <span className="text-sm font-bold text-indigo-700 font-mono">{deptDisplay}</span>
                   {semesterNumber && (

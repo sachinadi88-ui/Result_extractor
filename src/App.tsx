@@ -373,7 +373,7 @@ export default function App() {
       />
 
       {/* Main Container */}
-      <main className="flex-1 w-full max-w-7xl md:max-w-[90%] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 w-full max-w-7xl md:max-w-[96%] mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
         {/* Info & Account Isolation Status Banner */}
         <div className="hidden md:flex mb-6 p-3.5 sm:p-4 rounded-xl bg-white border border-slate-200 flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4 shadow-xs">
