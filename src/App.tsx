@@ -90,6 +90,8 @@ export default function App() {
 
   const handleLogin = (user: AuthUser) => {
     setCurrentUser(user);
+    setIsLocked(true);
+    localStorage.setItem('vtu_database_locked', 'true');
     showToast(`Welcome back, ${user.name}! Logged in as ${user.email}`);
   };
 
@@ -99,6 +101,8 @@ export default function App() {
 
   const confirmSignOut = () => {
     setCurrentUser(null);
+    setIsLocked(true);
+    localStorage.setItem('vtu_database_locked', 'true');
     setIsSignOutConfirmOpen(false);
     showToast('Successfully signed out.');
   };
