@@ -105,7 +105,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <>
       <header className="bg-white border-b border-slate-200 text-slate-900 sticky top-0 z-50 shadow-xs">
-      <div className="w-full px-3 sm:px-6 lg:px-8 py-2 sm:py-2.5">
+      <div className="w-full md:max-w-[90%] mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-2.5">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 sm:gap-3">
           
           {/* Top Row on Mobile / Left Section on Desktop */}
