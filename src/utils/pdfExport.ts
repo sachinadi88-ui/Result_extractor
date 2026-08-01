@@ -453,7 +453,17 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
   }
 
   // Save the PDF
-  const filename = `${collegeName.replace(/[^a-zA-Z0-9]/g, '_')}_Results_Report.pdf`;
+  let departmentShortName = '';
+  for (const rec of records) {
+    const dept = getDepartmentFromUsn(rec.usn);
+    if (dept) {
+      departmentShortName = dept.short;
+      break;
+    }
+  }
+  const deptPart = departmentShortName || 'DEPT';
+  const semPart = semesterNumber || '0';
+  const filename = `SMVCER__${deptPart}_${semPart}_RESULT_Analysis_Summary.pdf`;
   doc.save(filename);
 }
 
@@ -915,6 +925,16 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
   }
 
   // Save the PDF
-  const filename = `${collegeName.replace(/[^a-zA-Z0-9]/g, '_')}_Results_Landscape_Report.pdf`;
+  let departmentShortName = '';
+  for (const rec of records) {
+    const dept = getDepartmentFromUsn(rec.usn);
+    if (dept) {
+      departmentShortName = dept.short;
+      break;
+    }
+  }
+  const deptPart = departmentShortName || 'DEPT';
+  const semPart = semesterNumber || '0';
+  const filename = `SMVCER_${deptPart}_${semPart}_detailed_result_analysis.pdf`;
   doc.save(filename);
 }
