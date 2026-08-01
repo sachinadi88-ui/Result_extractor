@@ -251,23 +251,23 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             {/* Display Logged-In User Profile Photo & Name - Desktop (lg+) */}
-            <div className="hidden lg:flex items-center space-x-2 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs shrink-0">
+            <div className="hidden lg:flex items-center space-x-1 bg-slate-50 px-1 py-1 rounded-lg border border-slate-200 shadow-2xs shrink-0">
               <img
                 src={currentUser.picture}
                 alt={currentUser.name}
                 className="w-6 h-6 rounded-full object-cover border border-slate-300 shrink-0"
               />
+              <button
+                onClick={onSignOut}
+                title="Sign Out"
+                className="p-1 rounded-md text-[#DC2626] hover:bg-red-100/80 transition-colors cursor-pointer shrink-0"
+              >
+                <LogOut className="w-3.5 h-3.5 text-[#DC2626]" />
+              </button>
               <div className="text-left leading-tight max-w-[110px] sm:max-w-[140px] truncate">
                 <p className="text-[11px] font-bold text-slate-800 truncate">{currentUser.name}</p>
                 <p className="text-[9px] text-slate-500 truncate font-mono">{currentUser.email}</p>
               </div>
-              <button
-                onClick={onSignOut}
-                title="Sign Out"
-                className="p-1 rounded-md text-[#DC2626] hover:bg-red-100/80 transition-colors ml-0.5 cursor-pointer shrink-0"
-              >
-                <LogOut className="w-3.5 h-3.5 text-[#DC2626]" />
-              </button>
             </div>
 
           </div>
