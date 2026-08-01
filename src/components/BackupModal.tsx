@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { X, DatabaseBackup, Download, Upload, Loader2, CheckCircle2, AlertCircle, Info, Lock } from 'lucide-react';
 import { StudentRecord, AuthUser } from '../types';
 import { saveMultipleRecordsToFirestore } from '../lib/firebase';
+import { getDepartmentFromUsn } from '../utils/statusHelper';
 
 interface BackupModalProps {
   isOpen: boolean;
@@ -35,11 +36,31 @@ export const BackupModal: React.FC<BackupModalProps> = ({
         return;
       }
 
+      let departmentShortName = '';
+      for (const rec of records) {
+        const dept = getDepartmentFromUsn(rec.usn);
+        if (dept) {
+          departmentShortName = dept.short;
+          break;
+        }
+      }
+      const deptPart = departmentShortName || 'DEPT';
+
+      let semesterNumber = '';
+      for (const rec of records) {
+        if (rec.semester) {
+          semesterNumber = String(rec.semester).trim();
+          break;
+        }
+      }
+      const semPart = semesterNumber || '0';
+      const dateStr = new Date().toISOString().split('T')[0];
+
       const blob = new Blob([JSON.stringify(records, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `student_records_backup_${new Date().toISOString().split('T')[0]}.json`;
+      link.download = `Result_Analysis_${deptPart}_${semPart}th_SEM_${dateStr}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
