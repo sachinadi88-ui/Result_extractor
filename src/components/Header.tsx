@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { FileSpreadsheet, Upload, Download, GraduationCap, LogOut, ShieldCheck, Database, Save, BarChart3, RefreshCw, DatabaseBackup, Lock, Unlock, Smartphone } from 'lucide-react';
+import React, { useState } from 'react';
+import { FileSpreadsheet, Upload, Download, GraduationCap, LogOut, ShieldCheck, Database, Save, BarChart3, RefreshCw, DatabaseBackup, Lock, Unlock } from 'lucide-react';
 import { StudentRecord, AuthUser } from '../types';
 import { isStudentPass, getDepartmentFromUsn } from '../utils/statusHelper';
 import { ExportFormatModal } from './ExportFormatModal';
@@ -42,28 +42,6 @@ export const Header: React.FC<HeaderProps> = ({
   onUnlockClick,
 }) => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
-  }, []);
-
-  const handleInstallPWA = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      console.log('PWA installation accepted');
-    }
-    setDeferredPrompt(null);
-  };
   const totalStudents = records.length;
   const uniqueSubjectsSet = new Set<string>();
   records.forEach((r) => {
@@ -270,17 +248,6 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <DatabaseBackup className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
-
-              {deferredPrompt && (
-                <button
-                  onClick={handleInstallPWA}
-                  title="Install Student Result Extractor as Desktop/Mobile App"
-                  className="inline-flex items-center justify-center space-x-1.5 px-2.5 py-1.5 sm:py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer animate-bounce shrink-0"
-                >
-                  <Smartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span className="hidden xs:inline">Install App</span>
-                </button>
-              )}
             </div>
 
             {/* Display Logged-In User Profile Photo & Name - Desktop (lg+) */}
