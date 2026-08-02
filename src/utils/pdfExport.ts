@@ -441,6 +441,24 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
     },
   });
 
+  // --- SIGNATURE SECTION ---
+  let finalY = (doc as any).lastAutoTable?.finalY || 200;
+  let sigY = finalY + 18; // ~4 rows gap
+  if (sigY > 272) {
+    if (finalY <= 254) {
+      sigY = 272;
+    } else {
+      doc.addPage();
+      sigY = 40;
+    }
+  }
+
+  doc.setFont('Helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(15, 23, 42);
+  doc.text('HOD', 15, sigY);
+  doc.text('PRINCIPAL', 195, sigY, { align: 'right' });
+
   // Footer / Page numbers helper
   const totalPages = (doc as any).internal.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
@@ -892,6 +910,24 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
       },
     });
   }
+
+  // --- SIGNATURE SECTION ---
+  let finalY = (doc as any).lastAutoTable?.finalY || 140;
+  let sigY = finalY + 18; // ~4 rows gap
+  if (sigY > 185) {
+    if (finalY <= 167) {
+      sigY = 185;
+    } else {
+      doc.addPage();
+      sigY = 35;
+    }
+  }
+
+  doc.setFont('Helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(15, 23, 42);
+  doc.text('HOD', 15, sigY);
+  doc.text('PRINCIPAL', 282, sigY, { align: 'right' });
 
   // Footer / Page numbers / Legend helper
   const totalPages = (doc as any).internal.getNumberOfPages();
