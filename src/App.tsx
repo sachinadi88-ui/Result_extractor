@@ -10,6 +10,7 @@ import { SignOutConfirmModal } from './components/SignOutConfirmModal';
 import { BackupModal } from './components/BackupModal';
 import { PasswordModal } from './components/PasswordModal';
 import { FacultyMapModal } from './components/FacultyMapModal';
+import { NewView } from './components/NewView';
 import { StudentRecord, AuthUser } from './types';
 import { getStoredStudentRecords, saveStudentRecords, exportToExcel } from './utils/storage';
 import { exportToPDF, exportToPDFLandscape } from './utils/pdfExport';
@@ -51,6 +52,7 @@ export default function App() {
   const [isSignOutConfirmOpen, setIsSignOutConfirmOpen] = useState<boolean>(false);
   const [isBackupOpen, setIsBackupOpen] = useState<boolean>(false);
   const [isFacultyModalOpen, setIsFacultyModalOpen] = useState<boolean>(false);
+  const [currentView, setCurrentView] = useState<'main' | 'newView'>('main');
   
   // Security locks (Default to locked unless explicitly unlocked by typing password)
   const [isLocked, setIsLocked] = useState<boolean>(() => {
@@ -395,6 +397,8 @@ export default function App() {
         onClearAll={handleClearAll}
         onSignOut={handleSignOut}
         onOpenBackup={() => setIsBackupOpen(true)}
+        onOpenNewView={() => setCurrentView((prev) => (prev === 'main' ? 'newView' : 'main'))}
+        currentView={currentView}
         isLocked={isLocked}
         onLock={handleLock}
         onUnlockClick={() => setIsPasswordModalOpen(true)}
@@ -402,77 +406,81 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 w-full max-w-7xl md:max-w-[96%] mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        
-        {/* Info & Account Isolation Status Banner */}
-        <div className="hidden md:flex mb-6 p-3.5 sm:p-4 rounded-xl bg-white border border-slate-200 flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4 shadow-xs">
-          <div className="flex items-start sm:items-center space-x-3 text-xs text-slate-700 w-full md:w-auto">
-            <div className="hidden sm:flex items-center space-x-3 shrink-0">
-              <img
-                src={currentUser.picture}
-                alt={currentUser.name}
-                className="w-10 h-10 rounded-full object-cover border border-emerald-500 shrink-0"
-              />
-            </div>
-            <div className="space-y-1 min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                <span className="hidden sm:inline font-medium text-slate-500">Logged in as:</span>
-                <span className="hidden sm:inline font-bold text-slate-900">{currentUser.name}</span>
-                <span className="hidden sm:inline font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200 text-[11px] truncate max-w-[180px] sm:max-w-none">
-                  {currentUser.email}
-                </span>
-                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-[11px] font-medium shrink-0">
-                  <Database className="w-3 h-3 text-orange-500" />
-                  <span className="hidden xs:inline">{isSyncingFirebase ? 'Syncing...' : 'Firebase Active'}</span>
-                  <span className="xs:hidden">{isSyncingFirebase ? 'Sync' : 'Active'}</span>
-                </span>
-                {deptLongNameDisplay && (
-                  <span className="hidden md:inline font-bold text-indigo-800 text-[15px] ml-1">
-                    {deptLongNameDisplay}
-                  </span>
-                )}
+        {currentView === 'main' ? (
+          <>
+            {/* Info & Account Isolation Status Banner */}
+            <div className="hidden md:flex mb-6 p-3.5 sm:p-4 rounded-xl bg-white border border-slate-200 flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4 shadow-xs">
+              <div className="flex items-start sm:items-center space-x-3 text-xs text-slate-700 w-full md:w-auto">
+                <div className="hidden sm:flex items-center space-x-3 shrink-0">
+                  <img
+                    src={currentUser.picture}
+                    alt={currentUser.name}
+                    className="w-10 h-10 rounded-full object-cover border border-emerald-500 shrink-0"
+                  />
+                </div>
+                <div className="space-y-1 min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                    <span className="hidden sm:inline font-medium text-slate-500">Logged in as:</span>
+                    <span className="hidden sm:inline font-bold text-slate-900">{currentUser.name}</span>
+                    <span className="hidden sm:inline font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200 text-[11px] truncate max-w-[180px] sm:max-w-none">
+                      {currentUser.email}
+                    </span>
+                    <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-[11px] font-medium shrink-0">
+                      <Database className="w-3 h-3 text-orange-500" />
+                      <span className="hidden xs:inline">{isSyncingFirebase ? 'Syncing...' : 'Firebase Active'}</span>
+                      <span className="xs:hidden">{isSyncingFirebase ? 'Sync' : 'Active'}</span>
+                    </span>
+                    {deptLongNameDisplay && (
+                      <span className="hidden md:inline font-bold text-indigo-800 text-[15px] ml-1">
+                        {deptLongNameDisplay}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-slate-500 text-[11px] sm:text-xs leading-normal">
+                    Upload university mark sheet screenshots. AI extracts <strong className="text-slate-800">USN</strong>, <strong className="text-slate-800">Name</strong>, <strong className="text-slate-800">Subjects</strong>, <strong className="text-slate-800">Marks</strong>, and <strong className="text-slate-800">Results</strong> into structured rows tied to your account.
+                  </p>
+                </div>
               </div>
-              <p className="text-slate-500 text-[11px] sm:text-xs leading-normal">
-                Upload university mark sheet screenshots. AI extracts <strong className="text-slate-800">USN</strong>, <strong className="text-slate-800">Name</strong>, <strong className="text-slate-800">Subjects</strong>, <strong className="text-slate-800">Marks</strong>, and <strong className="text-slate-800">Results</strong> into structured rows tied to your account.
-              </p>
+
+              <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto shrink-0">
+                <button
+                  onClick={() => setIsFacultyModalOpen(true)}
+                  className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors shadow-xs cursor-pointer"
+                >
+                  <Users className="w-4 h-4" />
+                  <span>MAP Faculty</span>
+                </button>
+
+                <button
+                  onClick={handleOpenUpload}
+                  className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Screenshot</span>
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto shrink-0">
-            <button
-              onClick={() => setIsFacultyModalOpen(true)}
-              className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors shadow-xs cursor-pointer"
-            >
-              <Users className="w-4 h-4" />
-              <span>MAP Faculty</span>
-            </button>
-
-            <button
-              onClick={handleOpenUpload}
-              className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors shadow-xs cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Screenshot</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Results Table Section */}
-        <ResultsTable
-          records={records}
-          onSelectStudent={(student) => {
-            setSelectedStudent(student);
-            setIsDetailOpen(true);
-          }}
-          onDeleteStudent={handleDeleteStudent}
-          onOpenUpload={handleOpenUpload}
-          onUpdateRecords={handleBatchUpdateRecords}
-          isLocked={isLocked}
-          onRequestUnlock={() => {
-            setIsPasswordModalOpen(true);
-            showToast('System is locked. Please enter password to unlock editing options.');
-          }}
-        />
-
+            {/* Results Table Section */}
+            <ResultsTable
+              records={records}
+              onSelectStudent={(student) => {
+                setSelectedStudent(student);
+                setIsDetailOpen(true);
+              }}
+              onDeleteStudent={handleDeleteStudent}
+              onOpenUpload={handleOpenUpload}
+              onUpdateRecords={handleBatchUpdateRecords}
+              isLocked={isLocked}
+              onRequestUnlock={() => {
+                setIsPasswordModalOpen(true);
+                showToast('System is locked. Please enter password to unlock editing options.');
+              }}
+            />
+          </>
+        ) : (
+          <NewView onBackToMain={() => setCurrentView('main')} />
+        )}
       </main>
 
       {/* Footer bar */}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileSpreadsheet, Upload, Download, GraduationCap, LogOut, ShieldCheck, Database, Save, BarChart3, RefreshCw, DatabaseBackup, Lock, Unlock } from 'lucide-react';
+import { FileSpreadsheet, Upload, Download, GraduationCap, LogOut, ShieldCheck, Database, Save, BarChart3, RefreshCw, DatabaseBackup, Lock, Unlock, Layers } from 'lucide-react';
 import { StudentRecord, AuthUser } from '../types';
 import { isStudentPass, getDepartmentFromUsn } from '../utils/statusHelper';
 import { ExportFormatModal } from './ExportFormatModal';
@@ -18,6 +18,8 @@ interface HeaderProps {
   onClearAll: () => void;
   onSignOut: () => void;
   onOpenBackup: () => void;
+  onOpenNewView?: () => void;
+  currentView?: 'main' | 'newView';
   isLocked: boolean;
   onLock: () => void;
   onUnlockClick: () => void;
@@ -37,6 +39,8 @@ export const Header: React.FC<HeaderProps> = ({
   onClearAll,
   onSignOut,
   onOpenBackup,
+  onOpenNewView,
+  currentView = 'main',
   isLocked,
   onLock,
   onUnlockClick,
@@ -247,6 +251,19 @@ export const Header: React.FC<HeaderProps> = ({
                 className="inline-flex items-center justify-center p-1.5 sm:p-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-600 hover:text-slate-800 transition-colors shadow-xs cursor-pointer shrink-0"
               >
                 <DatabaseBackup className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+
+              <button
+                onClick={onOpenNewView}
+                title={currentView === 'newView' ? "Switch to Main View" : "Open New View"}
+                className={`inline-flex items-center justify-center space-x-1 px-2 py-1.5 sm:px-2.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer shrink-0 ${
+                  currentView === 'newView'
+                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white ring-2 ring-indigo-400'
+                    : 'bg-slate-800 hover:bg-slate-900 text-white'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-300" />
+                <span>{currentView === 'newView' ? 'Main View' : 'New View'}</span>
               </button>
             </div>
 

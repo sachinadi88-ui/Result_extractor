@@ -475,7 +475,7 @@ export async function exportToExcel(records: StudentRecord[]): Promise<void> {
         hasValid: totalInfo.hasValid,
       };
     })
-    .filter((item) => item.hasValid)
+    .filter((item) => item.hasValid && isStudentPass(item.student))
     .sort((a, b) => b.sum - a.sum)
     .slice(0, 3);
 

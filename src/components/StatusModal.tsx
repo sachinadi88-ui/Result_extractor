@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { X, Search, BookOpen, Percent, Users, CheckCircle, AlertCircle, Trophy, Award, Crown, Sparkles } from 'lucide-react';
 import { StudentRecord } from '../types';
-import { isSubjectPass, getStudentTotalMarks } from '../utils/statusHelper';
+import { isSubjectPass, getStudentTotalMarks, isStudentPass } from '../utils/statusHelper';
 
 interface StatusModalProps {
   isOpen: boolean;
@@ -16,7 +16,7 @@ export const StatusModal: React.FC<StatusModalProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Get top 3 students who scored highest
+  // Get top 3 students who scored highest (only passed students)
   const topStudents = useMemo(() => {
     return [...records]
       .map(student => {
@@ -28,7 +28,7 @@ export const StatusModal: React.FC<StatusModalProps> = ({
           hasValid: totalInfo.hasValid
         };
       })
-      .filter(item => item.hasValid)
+      .filter(item => item.hasValid && isStudentPass(item.student))
       .sort((a, b) => b.sum - a.sum)
       .slice(0, 3);
   }, [records]);

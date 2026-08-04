@@ -216,7 +216,7 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
         hasValid: totalInfo.hasValid,
       };
     })
-    .filter((item) => item.hasValid)
+    .filter((item) => item.hasValid && isStudentPass(item.student))
     .sort((a, b) => b.sum - a.sum)
     .slice(0, 3);
 
@@ -764,7 +764,7 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
         statusVal,
       };
     })
-    .filter((item) => item.hasValid)
+    .filter((item) => item.hasValid && isStudentPass(item.student))
     .sort((a, b) => b.sum - a.sum)
     .slice(0, 3);
 
