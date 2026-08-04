@@ -45,7 +45,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     setFormData((prev) => (prev ? { ...prev, [field]: value } : null));
   };
 
-  const handleSubjectChange = (index: number, key: keyof SubjectResult, value: string) => {
+  const handleSubjectChange = (index: number, key: keyof SubjectResult, value: any) => {
     if (!formData) return;
     const updatedSubjects = [...formData.subjects];
     updatedSubjects[index] = { ...updatedSubjects[index], [key]: value };
@@ -486,6 +486,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                         <th className="px-3 py-2 w-20">External</th>
                         <th className="px-3 py-2 w-20">Total</th>
                         <th className="px-3 py-2 w-24">Result</th>
+                        <th className="px-3 py-2 w-20 text-center" title="Exclude subject marks from Total calculation">Non-Credit</th>
                         {!isLocked && <th className="px-3 py-2 w-10 text-center">Action</th>}
                       </tr>
                     </thead>
@@ -559,6 +560,18 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                                   : 'text-amber-700 bg-amber-50 border-amber-200 disabled:bg-amber-50/50'
                               }`}
                             />
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            <label className={`inline-flex items-center justify-center ${isLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+                              <input
+                                type="checkbox"
+                                disabled={isLocked}
+                                checked={!!sub.isNonCredit}
+                                onChange={(e) => handleSubjectChange(idx, 'isNonCredit', e.target.checked)}
+                                className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer disabled:cursor-not-allowed"
+                                title="Non-Credit / Excluded from Total Marks"
+                              />
+                            </label>
                           </td>
                           {!isLocked && (
                             <td className="px-3 py-2 text-center">

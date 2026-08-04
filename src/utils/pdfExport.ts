@@ -266,9 +266,11 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
   const statsMap = new Map<string, {
     subjectCode: string;
     subjectName: string;
+    facultyName: string;
     totalStudents: number;
     totalPass: number;
     totalFail: number;
+    isNonCredit: boolean;
   }>();
 
   records.forEach((student) => {
@@ -277,6 +279,7 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
         if (!sub || !sub.subjectName) return;
         const code = (sub.subjectCode || '').trim();
         const name = (sub.subjectName || '').trim();
+        const faculty = (sub.facultyName || '').trim();
         const key = code ? `${code.toUpperCase()}::${name.toUpperCase()}` : name.toUpperCase();
 
         const isPass = isSubjectPass(sub);
@@ -285,10 +288,20 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
           statsMap.set(key, {
             subjectCode: code,
             subjectName: name,
+            facultyName: faculty,
             totalStudents: 0,
             totalPass: 0,
             totalFail: 0,
+            isNonCredit: !!sub.isNonCredit,
           });
+        } else {
+          const current = statsMap.get(key)!;
+          if (faculty && !current.facultyName) {
+            current.facultyName = faculty;
+          }
+          if (sub.isNonCredit) {
+            current.isNonCredit = true;
+          }
         }
 
         const current = statsMap.get(key)!;
@@ -321,10 +334,11 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
     autoTable(doc, {
       startY: statsStartY + 4,
       margin: { left: 15, right: 15 },
-      head: [['Subject Code', 'Subject Name', 'Enrolled', 'Passed', 'Failed', 'Pass Rate %']],
+      head: [['Subject Code', 'Subject Name', 'Faculty Name', 'Enrolled', 'Passed', 'Failed', 'Pass Rate %']],
       body: subjectStatsList.map((stat) => [
         stat.subjectCode || '-',
-        stat.subjectName,
+        stat.isNonCredit ? `${stat.subjectName} * (Non-Credit)` : stat.subjectName,
+        stat.facultyName || '-',
         stat.totalStudents,
         stat.totalPass,
         stat.totalFail,
@@ -343,12 +357,21 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
         valign: 'middle',
       },
       columnStyles: {
-        0: { cellWidth: 30 },
-        1: { cellWidth: 75 },
-        2: { cellWidth: 18, halign: 'center' },
-        3: { cellWidth: 18, halign: 'center' },
-        4: { cellWidth: 18, halign: 'center' },
-        5: { cellWidth: 21, halign: 'center', fontStyle: 'bold', textColor: [5, 150, 105] },
+        0: { cellWidth: 26 },
+        1: { cellWidth: 62 },
+        2: { cellWidth: 32, fontStyle: 'bold', textColor: [30, 41, 59] },
+        3: { cellWidth: 14, halign: 'center' },
+        4: { cellWidth: 14, halign: 'center' },
+        5: { cellWidth: 14, halign: 'center' },
+        6: { cellWidth: 18, halign: 'center', fontStyle: 'bold', textColor: [5, 150, 105] },
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body') {
+          const stat = subjectStatsList[data.row.index];
+          if (stat?.isNonCredit) {
+            data.cell.styles.fillColor = [241, 245, 249]; // Soft light grey tint for non-credit subject row
+          }
+        }
       },
     });
   } else {
@@ -593,7 +616,7 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
   doc.text(`Result Analysis${semSuffix}   •   Total Enrolled: ${records.length}   |   Passed: ${totalPass}   |   Pass Percentage: ${passPercentage}%`, 18, headerStartY + 27.5);
 
   // Find all unique subjects in insertion order (same as Excel sheet)
-  const uniqueSubjectsMap = new Map<string, { code: string; name: string }>();
+  const uniqueSubjectsMap = new Map<string, { code: string; name: string; isNonCredit: boolean }>();
 
   records.forEach((student) => {
     student.subjects?.forEach((sub) => {
@@ -603,7 +626,10 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
 
       const key = code ? code.toUpperCase() : name.toLowerCase();
       if (!uniqueSubjectsMap.has(key)) {
-        uniqueSubjectsMap.set(key, { code, name });
+        uniqueSubjectsMap.set(key, { code, name, isNonCredit: !!sub.isNonCredit });
+      } else if (sub.isNonCredit) {
+        const existing = uniqueSubjectsMap.get(key)!;
+        existing.isNonCredit = true;
       }
     });
   });
@@ -612,9 +638,13 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
     key,
     code: value.code,
     name: value.name,
+    isNonCredit: value.isNonCredit,
   }));
 
-  const subjectHeaders = uniqueSubjectsList.map(sub => sub.code || (sub.name.length > 15 ? sub.name.substring(0, 12) + '..' : sub.name));
+  const subjectHeaders = uniqueSubjectsList.map(sub => {
+    const raw = sub.code || (sub.name.length > 15 ? sub.name.substring(0, 12) + '..' : sub.name);
+    return sub.isNonCredit ? `${raw}*` : raw;
+  });
 
   const headers = [
     'S.No.',
@@ -703,6 +733,19 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
         // Subject columns (indices 3 to headers.length - 3)
         if (data.column.index >= 3 && data.column.index <= headers.length - 3) {
           data.cell.styles.halign = 'center';
+          const subIndex = data.column.index - 3;
+          if (uniqueSubjectsList[subIndex]?.isNonCredit) {
+            data.cell.styles.fillColor = [241, 245, 249]; // Soft light grey tint for non-credit column
+            data.cell.styles.textColor = [51, 65, 85]; // Slate 700
+          }
+        }
+      }
+      if (data.section === 'head') {
+        if (data.column.index >= 3 && data.column.index <= headers.length - 3) {
+          const subIndex = data.column.index - 3;
+          if (uniqueSubjectsList[subIndex]?.isNonCredit) {
+            data.cell.styles.fillColor = [51, 65, 85]; // Distinct grey header for non-credit column
+          }
         }
       }
     },
@@ -933,9 +976,10 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
   const totalPages = (doc as any).internal.getNumberOfPages();
   const pageHeight = doc.internal.pageSize.height; // 210 for landscape
   
+  const hasNC = uniqueSubjectsList.some(sub => sub.isNonCredit);
   const legends = uniqueSubjectsList
     .filter(sub => sub.code)
-    .map(sub => `${sub.code}: ${sub.name}`)
+    .map(sub => sub.isNonCredit ? `${sub.code}* (Non-Credit): ${sub.name}` : `${sub.code}: ${sub.name}`)
     .join('  |  ');
 
   for (let i = 1; i <= totalPages; i++) {
@@ -951,7 +995,8 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
     doc.setTextColor(100, 116, 139); // Slate 500
     
     if (legends) {
-      doc.text(`Subject Legend:  ${legends}`, 15, pageHeight - 16, { maxWidth: 267 });
+      const ncNote = hasNC ? '  [* Non-Credit Subject - Excluded from Total Marks]' : '';
+      doc.text(`Subject Legend:  ${legends}${ncNote}`, 15, pageHeight - 16, { maxWidth: 267 });
     }
 
     doc.setFontSize(7.5);

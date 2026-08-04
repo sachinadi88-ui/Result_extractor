@@ -31,6 +31,9 @@ interface ResultsTableProps {
   onSelectStudent: (student: StudentRecord) => void;
   onDeleteStudent: (id: string) => void;
   onOpenUpload: () => void;
+  onUpdateRecords?: (updatedRecords: StudentRecord[]) => void;
+  isLocked?: boolean;
+  onRequestUnlock?: () => void;
 }
 
 export const ResultsTable: React.FC<ResultsTableProps> = ({
@@ -38,6 +41,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   onSelectStudent,
   onDeleteStudent,
   onOpenUpload,
+  onUpdateRecords,
+  isLocked = false,
+  onRequestUnlock,
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -46,6 +52,29 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   const [sortField, setSortField] = useState<'usn' | 'name' | 'uploadedAt'>('usn');
   const [sortAsc, setSortAsc] = useState<boolean>(true);
   const [deletingStudent, setDeletingStudent] = useState<StudentRecord | null>(null);
+
+  const handleToggleNonCreditColumn = (columnIndex: number, subjectCode: string, isChecked: boolean) => {
+    if (isLocked) {
+      if (onRequestUnlock) onRequestUnlock();
+      return;
+    }
+    const updatedRecords = records.map((student) => {
+      if (!student.subjects || student.subjects.length === 0) return student;
+      const newSubjects = student.subjects.map((sub, idx) => {
+        const codeMatch = subjectCode && sub.subjectCode && sub.subjectCode.trim().toUpperCase() === subjectCode.trim().toUpperCase();
+        const indexMatch = idx === columnIndex;
+        if (codeMatch || indexMatch) {
+          return { ...sub, isNonCredit: isChecked };
+        }
+        return sub;
+      });
+      return { ...student, subjects: newSubjects };
+    });
+
+    if (onUpdateRecords) {
+      onUpdateRecords(updatedRecords);
+    }
+  };
 
   const handleCopyUsn = (usn: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -411,8 +440,13 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                                       : 'bg-red-50 border-red-200 text-red-900 group-hover:bg-red-100 group-hover:border-red-300'
                                   }`}
                                 >
-                                  <span className="font-bold text-slate-900">
-                                    {s.subjectCode ? `${s.subjectCode}: ` : ''}{s.subjectName}
+                                  <span className="font-bold text-slate-900 inline-flex items-center gap-1">
+                                    <span>{s.subjectCode ? `${s.subjectCode}: ` : ''}{s.subjectName}</span>
+                                    {s.isNonCredit && (
+                                      <span className="px-1 py-0.2 text-[9px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 rounded" title="Non-Credit / Excluded from Total Marks">
+                                        NC
+                                      </span>
+                                    )}
                                   </span>
 
                                   {hasMarks && (
@@ -567,11 +601,55 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   <th className="px-2 py-2 w-[150px] min-w-[150px] max-w-[150px] relative md:sticky left-auto md:left-[148px] z-20 bg-slate-100 border-r border-slate-300 shadow-none md:shadow-[3px_0_5px_-2px_rgba(0,0,0,0.12)]">
                     Student Name
                   </th>
-                  {Array.from({ length: maxSubjects }).map((_, i) => (
-                    <th key={i} className="px-3 py-2 w-[180px] min-w-[180px] max-w-[180px] border-r border-slate-200">
-                      Subject #{i + 1}
-                    </th>
-                  ))}
+                  {Array.from({ length: maxSubjects }).map((_, i) => {
+                    let colSubCode = '';
+                    let colSubName = '';
+                    let isNonCredit = false;
+
+                    for (const r of records) {
+                      const sub = r.subjects?.[i];
+                      if (sub) {
+                        if (!colSubCode && sub.subjectCode) colSubCode = sub.subjectCode.trim();
+                        if (!colSubName && sub.subjectName) colSubName = sub.subjectName.trim();
+                        if (sub.isNonCredit) isNonCredit = true;
+                      }
+                    }
+
+                    return (
+                      <th key={i} className="px-2 py-2 w-[180px] min-w-[180px] max-w-[180px] border-r border-slate-200 text-center align-top bg-slate-100">
+                        <div className="flex flex-row sm:flex-col items-center justify-center sm:justify-between h-full gap-1">
+                          <div className="font-bold text-slate-800 text-[11px] leading-tight truncate max-w-[125px] sm:max-w-[170px]" title={colSubName ? `${colSubCode ? colSubCode + ': ' : ''}${colSubName}` : `Subject #${i + 1}`}>
+                            {colSubCode ? colSubCode : `Subject #${i + 1}`}
+                          </div>
+                          <label
+                            className={`inline-flex items-center p-0.5 sm:px-1.5 sm:py-0.5 rounded text-[10px] font-medium border transition-colors select-none shrink-0 ${
+                              isLocked
+                                ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-pointer hover:bg-slate-200'
+                                : isNonCredit
+                                ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold cursor-pointer'
+                                : 'bg-white hover:bg-slate-200 text-slate-600 border-slate-300 cursor-pointer'
+                            }`}
+                            title={isLocked ? "System locked: Click to enter password and unlock editing" : "Check if this is a Non-Credit subject (excluded from total marks)"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isLocked && onRequestUnlock) {
+                                onRequestUnlock();
+                              }
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              disabled={isLocked}
+                              checked={isNonCredit}
+                              onChange={(e) => handleToggleNonCreditColumn(i, colSubCode, e.target.checked)}
+                              className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 sm:w-3 sm:h-3 cursor-pointer disabled:cursor-not-allowed"
+                            />
+                            <span className="hidden sm:inline ml-1">Non-Credit</span>
+                          </label>
+                        </div>
+                      </th>
+                    );
+                  })}
                   <th className="px-3 py-2 text-center min-w-[90px] border-r border-slate-200">Total</th>
                   <th className="px-3 py-2 text-center min-w-[90px]">Status</th>
                   <th className="px-3 py-2 text-right min-w-[80px]">Actions</th>
@@ -619,8 +697,13 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                         return (
                           <td key={i} className="px-2 py-1.5 border-r border-slate-100/80 w-[180px] min-w-[180px] max-w-[180px]">
                             <div className="p-1.5 rounded-lg border border-transparent transition-all duration-150 group-hover:bg-white group-hover:border-slate-200 group-hover:shadow-2xs">
-                              <div className="font-bold text-slate-900 text-[11px] truncate max-w-[164px] leading-tight" title={sub.subjectName}>
-                                {sub.subjectCode ? `${sub.subjectCode} ` : ''}{sub.subjectName}
+                              <div className="font-bold text-slate-900 text-[11px] truncate max-w-[164px] leading-tight flex items-center justify-between" title={sub.subjectName}>
+                                <span className="truncate">{sub.subjectCode ? `${sub.subjectCode} ` : ''}{sub.subjectName}</span>
+                                {sub.isNonCredit && (
+                                  <span className="ml-1 px-1 py-0.2 text-[9px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 rounded shrink-0" title="Non-Credit / Excluded from Total Marks">
+                                    NC
+                                  </span>
+                                )}
                               </div>
                               {(sub.internalMarks || sub.externalMarks || sub.totalMarks) && (
                                 <div className="text-[10px] text-slate-600 font-mono leading-tight mt-0.5">
@@ -744,8 +827,13 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                       {student.subjects?.map((s, idx) => (
                         <div key={idx} className="p-2 rounded bg-slate-50 border border-slate-100 space-y-1 text-xs">
                           <div className="flex items-center justify-between font-medium">
-                            <span className="text-slate-900 font-bold truncate max-w-[180px]" title={s.subjectName}>
-                              {s.subjectCode ? `${s.subjectCode} ` : ''}{s.subjectName}
+                            <span className="text-slate-900 font-bold truncate max-w-[180px] inline-flex items-center gap-1" title={s.subjectName}>
+                              <span className="truncate">{s.subjectCode ? `${s.subjectCode} ` : ''}{s.subjectName}</span>
+                              {s.isNonCredit && (
+                                <span className="px-1 py-0.2 text-[9px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 rounded shrink-0" title="Non-Credit / Excluded from Total Marks">
+                                  NC
+                                </span>
+                              )}
                             </span>
                             <span
                               className={`font-bold font-mono text-[10px] px-1.5 py-0.5 rounded ${

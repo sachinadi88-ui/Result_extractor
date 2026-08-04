@@ -14,6 +14,8 @@ export interface SubjectResult {
   totalMarks?: string;
   grade?: string;
   credits?: string;
+  isNonCredit?: boolean; // Flag to exclude subject marks from total score
+  facultyName?: string; // Faculty member assigned to teach this subject
 }
 
 export interface StudentRecord {

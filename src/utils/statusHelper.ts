@@ -110,7 +110,7 @@ export function getEffectiveStatus(student: Partial<StudentRecord> | any): strin
   return isStudentPass(student) ? 'PASS' : 'FAIL';
 }
 
-// Helper to calculate total marks across all subjects for a student
+// Helper to calculate total marks across all subjects for a student (skips non-credit subjects)
 export const getStudentTotalMarks = (student: StudentRecord): { display: string; sum: number; hasValid: boolean } => {
   let sum = 0;
   let maxSum = 0;
@@ -118,6 +118,9 @@ export const getStudentTotalMarks = (student: StudentRecord): { display: string;
   let hasDenominator = false;
 
   student.subjects?.forEach((s) => {
+    // Skip subjects flagged as non-credit
+    if (s.isNonCredit) return;
+
     if (s.totalMarks) {
       // Handles formats like "85/100" or just "85"
       const parts = s.totalMarks.split('/');

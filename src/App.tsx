@@ -9,6 +9,7 @@ import { StatusModal } from './components/StatusModal';
 import { SignOutConfirmModal } from './components/SignOutConfirmModal';
 import { BackupModal } from './components/BackupModal';
 import { PasswordModal } from './components/PasswordModal';
+import { FacultyMapModal } from './components/FacultyMapModal';
 import { StudentRecord, AuthUser } from './types';
 import { getStoredStudentRecords, saveStudentRecords, exportToExcel } from './utils/storage';
 import { exportToPDF, exportToPDFLandscape } from './utils/pdfExport';
@@ -20,7 +21,7 @@ import {
   deleteRecordFromFirestore,
   deleteMultipleRecordsFromFirestore
 } from './lib/firebase';
-import { CheckCircle2, FileSpreadsheet, Plus, ShieldCheck, Database, BarChart3 } from 'lucide-react';
+import { CheckCircle2, FileSpreadsheet, Plus, ShieldCheck, Database, BarChart3, Users } from 'lucide-react';
 const smvcerLogo = "/smvcer_crest.jpg";
 
 const AUTH_STORAGE_KEY = 'vtu_auth_user_session_v1';
@@ -49,6 +50,7 @@ export default function App() {
   const [isStatusOpen, setIsStatusOpen] = useState<boolean>(false);
   const [isSignOutConfirmOpen, setIsSignOutConfirmOpen] = useState<boolean>(false);
   const [isBackupOpen, setIsBackupOpen] = useState<boolean>(false);
+  const [isFacultyModalOpen, setIsFacultyModalOpen] = useState<boolean>(false);
   
   // Security locks (Default to locked unless explicitly unlocked by typing password)
   const [isLocked, setIsLocked] = useState<boolean>(() => {
@@ -161,6 +163,28 @@ export default function App() {
     } catch (err) {
       console.error('Error auto-syncing to Firebase:', err);
       showToast('Extraction complete, but failed to sync to Firebase database.');
+    } finally {
+      setIsSyncingFirebase(false);
+    }
+  };
+
+  const handleBatchUpdateRecords = async (updatedRecords: StudentRecord[]) => {
+    if (isLocked) {
+      setIsPasswordModalOpen(true);
+      showToast('System locked: Please unlock with password to modify non-credit status.');
+      return;
+    }
+    setRecords(updatedRecords);
+
+    setIsSyncingFirebase(true);
+    try {
+      if (currentUser) {
+        await saveMultipleRecordsToFirestore(updatedRecords, currentUser.email);
+      }
+      showToast('Non-credit subjects updated & saved to database.');
+    } catch (err) {
+      console.error('Error saving updated records to Firebase:', err);
+      showToast('Failed to save non-credit changes to database.');
     } finally {
       setIsSyncingFirebase(false);
     }
@@ -413,13 +437,23 @@ export default function App() {
             </div>
           </div>
 
-          <button
-            onClick={handleOpenUpload}
-            className="w-full md:w-auto inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shrink-0 transition-colors shadow-xs cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Screenshot</span>
-          </button>
+          <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto shrink-0">
+            <button
+              onClick={() => setIsFacultyModalOpen(true)}
+              className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors shadow-xs cursor-pointer"
+            >
+              <Users className="w-4 h-4" />
+              <span>MAP Faculty</span>
+            </button>
+
+            <button
+              onClick={handleOpenUpload}
+              className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors shadow-xs cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Screenshot</span>
+            </button>
+          </div>
         </div>
 
         {/* Results Table Section */}
@@ -431,6 +465,12 @@ export default function App() {
           }}
           onDeleteStudent={handleDeleteStudent}
           onOpenUpload={handleOpenUpload}
+          onUpdateRecords={handleBatchUpdateRecords}
+          isLocked={isLocked}
+          onRequestUnlock={() => {
+            setIsPasswordModalOpen(true);
+            showToast('System is locked. Please enter password to unlock editing options.');
+          }}
         />
 
       </main>
@@ -565,6 +605,19 @@ export default function App() {
           <span className="text-slate-200">Syncing Data- Please Wait</span>
         </div>
       )}
+
+      {/* Faculty Mapping Modal */}
+      <FacultyMapModal
+        isOpen={isFacultyModalOpen}
+        onClose={() => setIsFacultyModalOpen(false)}
+        records={records}
+        onSaveFacultyMapping={handleBatchUpdateRecords}
+        isLocked={isLocked}
+        onRequestUnlock={() => {
+          setIsPasswordModalOpen(true);
+          showToast('System is locked. Please enter password to unlock faculty mapping options.');
+        }}
+      />
 
     </div>
   );

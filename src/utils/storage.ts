@@ -147,7 +147,7 @@ export async function exportToExcel(records: StudentRecord[]): Promise<void> {
   const worksheet = workbook.addWorksheet('Student Results');
 
   // Collect all unique subjects across all records for dynamic column headers
-  const subjectMap = new Map<string, { code: string; name: string; header: string }>();
+  const subjectMap = new Map<string, { code: string; name: string; header: string; isNonCredit: boolean }>();
 
   records.forEach((rec) => {
     rec.subjects?.forEach((s) => {
@@ -166,7 +166,18 @@ export async function exportToExcel(records: StudentRecord[]): Promise<void> {
         } else {
           header = name;
         }
-        subjectMap.set(key, { code, name, header });
+        if (s.isNonCredit) {
+          header += ' * (NC)';
+        }
+        subjectMap.set(key, { code, name, header, isNonCredit: !!s.isNonCredit });
+      } else if (s.isNonCredit) {
+        const existing = subjectMap.get(key)!;
+        if (!existing.isNonCredit) {
+          existing.isNonCredit = true;
+          if (!existing.header.includes('(NC)')) {
+            existing.header += ' * (NC)';
+          }
+        }
       }
     });
   });
@@ -258,6 +269,24 @@ export async function exportToExcel(records: StudentRecord[]): Promise<void> {
     }
   }
 
+  // Highlight non-credit subject header columns in Excel with a slate grey tone
+  if (subjectList.length > 0) {
+    const nonCreditHeaderFill: ExcelJS.Fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF475569' }, // Slate 600 grey fill
+    };
+    subjectList.forEach(([_, subInfo], sIdx) => {
+      if (subInfo.isNonCredit) {
+        const startCol = baseHeaders.length + 1 + sIdx * 4;
+        for (let c = startCol; c < startCol + 4; c++) {
+          worksheet.getRow(1).getCell(c).fill = nonCreditHeaderFill;
+          worksheet.getRow(2).getCell(c).fill = nonCreditHeaderFill;
+        }
+      }
+    });
+  }
+
   // Add data rows
   const borderLight: Partial<ExcelJS.Borders> = {
     top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
@@ -312,42 +341,8 @@ export async function exportToExcel(records: StudentRecord[]): Promise<void> {
       rowData.push(summary);
     }
 
-    // Calculate sum of total marks of all subjects for this student
-    let sum = 0;
-    let maxSum = 0;
-    let hasValid = false;
-    let hasDenominator = false;
-
-    rec.subjects?.forEach((s) => {
-      if (s.totalMarks) {
-        const parts = s.totalMarks.split('/');
-        const obtainedStr = parts[0].trim();
-        const val = parseInt(obtainedStr, 10);
-        if (!isNaN(val)) {
-          sum += val;
-          hasValid = true;
-
-          if (parts.length > 1) {
-            const maxStr = parts[1].trim();
-            const maxVal = parseInt(maxStr, 10);
-            if (!isNaN(maxVal)) {
-              maxSum += maxVal;
-              hasDenominator = true;
-            }
-          }
-        }
-      }
-    });
-
-    let totalDisplay = '-';
-    if (hasValid) {
-      if (hasDenominator && maxSum > 0) {
-        totalDisplay = `${sum}/${maxSum}`;
-      } else {
-        totalDisplay = `${sum}`;
-      }
-    }
-
+    // Calculate sum of total marks of all credit subjects for this student
+    const totalDisplay = getStudentTotalMarks(rec).display;
     rowData.push(totalDisplay);
 
     const addedRow = worksheet.addRow(rowData);
@@ -396,20 +391,38 @@ export async function exportToExcel(records: StudentRecord[]): Promise<void> {
         }
       }
 
-      // Individual Subject Result Column styling (every 4th column starting at col 11: 11, 15, 19, etc.)
+      // Individual Subject Column styling (Internal, External, Total, Result)
       if (subjectList.length > 0 && colIdx > baseHeaders.length && colIdx < totalCols) {
         const relativeColIdx = colIdx - baseHeaders.length;
+        const sIdx = Math.floor((relativeColIdx - 1) / 4);
+        const subInfo = subjectList[sIdx]?.[1];
+
+        if (subInfo?.isNonCredit) {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF1F5F9' }, // Soft slate light grey background for non-credit subject cells
+          };
+          cell.font = {
+            name: 'Segoe UI',
+            size: 10,
+            color: { argb: 'FF334155' },
+          };
+        }
+
         if (relativeColIdx % 4 === 0) { // This is the 'Result' column of a subject
           const resVal = String(cell.value || '').toUpperCase().trim();
           if (resVal) {
             // Check if it's fail or pass
             const isPass = !['F', 'FAIL', 'A', 'AB', 'ABSENT', 'W', 'WITHHELD', 'NE', 'NOT ELIGIBLE', 'REJECTED'].includes(resVal) && !resVal.includes('FAIL') && !resVal.includes('ABSENT') && !resVal.includes('WITHHELD');
             if (isPass) {
-              cell.fill = {
-                type: 'pattern',
-                pattern: 'solid',
-                fgColor: { argb: 'FFECFDF5' }, // Very soft green
-              };
+              if (!subInfo?.isNonCredit) {
+                cell.fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: { argb: 'FFECFDF5' }, // Very soft green
+                };
+              }
               cell.font = {
                 name: 'Segoe UI',
                 size: 9,
@@ -417,11 +430,13 @@ export async function exportToExcel(records: StudentRecord[]): Promise<void> {
                 color: { argb: 'FF047857' },
               };
             } else {
-              cell.fill = {
-                type: 'pattern',
-                pattern: 'solid',
-                fgColor: { argb: 'FFFEF2F2' }, // Very soft red
-              };
+              if (!subInfo?.isNonCredit) {
+                cell.fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: { argb: 'FFFEF2F2' }, // Very soft red
+                };
+              }
               cell.font = {
                 name: 'Segoe UI',
                 size: 9,
