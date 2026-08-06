@@ -1,5 +1,34 @@
 import { StudentRecord, SubjectResult } from '../types';
 
+export function filterRecordsBySemester(records: StudentRecord[], semesterFilter?: any): StudentRecord[] {
+  if (!semesterFilter || typeof semesterFilter !== 'string' || semesterFilter === 'ALL') {
+    return records;
+  }
+  const targetSem = semesterFilter.trim().toLowerCase();
+  return records.filter((rec) => {
+    const recSem = (rec.semester || '').trim().toLowerCase();
+    if (!recSem) return false;
+    return (
+      recSem === targetSem ||
+      recSem.includes(`sem ${targetSem}`) ||
+      recSem.includes(`${targetSem}th`) ||
+      recSem.includes(`${targetSem}st`) ||
+      recSem.includes(`${targetSem}nd`) ||
+      recSem.includes(`${targetSem}rd`)
+    );
+  });
+}
+
+export function getAvailableSemesters(records: StudentRecord[]): string[] {
+  const sems = new Set<string>();
+  records.forEach((r) => {
+    if (r.semester && r.semester.trim()) {
+      sems.add(r.semester.trim());
+    }
+  });
+  return Array.from(sems).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+}
+
 export function isSubjectPass(s: SubjectResult | any): boolean {
   if (!s) return true;
 

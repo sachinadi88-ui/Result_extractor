@@ -6,10 +6,21 @@ import { getEffectiveStatus, getStudentTotalMarks, isStudentPass, isSubjectPass,
 // Helper to convert the college logo crest to a base64 string for embedding
 function getLogoDataUrl(): Promise<string | null> {
   return new Promise((resolve) => {
+    let resolved = false;
+    const finish = (val: string | null) => {
+      if (!resolved) {
+        resolved = true;
+        resolve(val);
+      }
+    };
+
+    const timer = setTimeout(() => finish(null), 1500);
+
     const img = new Image();
     img.src = '/PDFlogo.jpg';
     img.crossOrigin = 'anonymous';
     img.onload = () => {
+      clearTimeout(timer);
       try {
         const canvas = document.createElement('canvas');
         canvas.width = img.width;
@@ -17,13 +28,13 @@ function getLogoDataUrl(): Promise<string | null> {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0);
-          resolve(canvas.toDataURL('image/jpeg'));
+          finish(canvas.toDataURL('image/jpeg'));
           return;
         }
       } catch (e) {
         console.error('Failed to convert logo to data url:', e);
       }
-      resolve(null);
+      finish(null);
     };
     img.onerror = () => {
       // Fallback to /smvcer_crest.jpg if /PDFlogo.jpg fails
@@ -31,6 +42,7 @@ function getLogoDataUrl(): Promise<string | null> {
       fallback.src = '/smvcer_crest.jpg';
       fallback.crossOrigin = 'anonymous';
       fallback.onload = () => {
+        clearTimeout(timer);
         try {
           const canvas = document.createElement('canvas');
           canvas.width = fallback.width;
@@ -38,13 +50,16 @@ function getLogoDataUrl(): Promise<string | null> {
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(fallback, 0, 0);
-            resolve(canvas.toDataURL('image/jpeg'));
+            finish(canvas.toDataURL('image/jpeg'));
             return;
           }
         } catch (e) {}
-        resolve(null);
+        finish(null);
       };
-      fallback.onerror = () => resolve(null);
+      fallback.onerror = () => {
+        clearTimeout(timer);
+        finish(null);
+      };
     };
   });
 }
@@ -379,6 +394,95 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
     doc.setFontSize(8.5);
     doc.setTextColor(100, 116, 139);
     doc.text('No subject-wise statistics data available.', 15, statsStartY + 9);
+  }
+
+  // --- COMPARATIVE SEMESTER PERFORMANCE STATISTICS ---
+  const semStatsMap = new Map<string, {
+    semester: string;
+    totalEnrolled: number;
+    passed: number;
+    failed: number;
+    totalMarksSum: number;
+    validMarksCount: number;
+  }>();
+
+  records.forEach((rec) => {
+    const sem = (rec.semester || 'N/A').trim();
+    if (!semStatsMap.has(sem)) {
+      semStatsMap.set(sem, {
+        semester: sem,
+        totalEnrolled: 0,
+        passed: 0,
+        failed: 0,
+        totalMarksSum: 0,
+        validMarksCount: 0,
+      });
+    }
+    const stat = semStatsMap.get(sem)!;
+    stat.totalEnrolled += 1;
+    if (isStudentPass(rec)) {
+      stat.passed += 1;
+    } else {
+      stat.failed += 1;
+    }
+    const mInfo = getStudentTotalMarks(rec);
+    if (mInfo.hasValid) {
+      stat.totalMarksSum += mInfo.sum;
+      stat.validMarksCount += 1;
+    }
+  });
+
+  const semStatsList = Array.from(semStatsMap.values()).map((s) => {
+    const passPct = s.totalEnrolled > 0 ? (s.passed / s.totalEnrolled) * 100 : 0;
+    const avgMarks = s.validMarksCount > 0 ? Math.round((s.totalMarksSum / s.validMarksCount) * 10) / 10 : 0;
+    return {
+      ...s,
+      passPercentage: Math.round(passPct * 10) / 10,
+      avgMarks,
+    };
+  }).sort((a, b) => a.semester.localeCompare(b.semester, undefined, { numeric: true }));
+
+  if (semStatsList.length > 0) {
+    const semStartY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 8 : statsStartY + 20;
+    
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(15, 23, 42);
+    doc.text('COMPARATIVE SEMESTER PERFORMANCE STATISTICS', 15, semStartY);
+
+    autoTable(doc, {
+      startY: semStartY + 4,
+      margin: { left: 15, right: 15 },
+      head: [['Semester', 'Enrolled Students', 'Passed', 'Failed', 'Pass Rate %', 'Average Score']],
+      body: semStatsList.map((s) => [
+        `Semester ${s.semester.replace(/^sem\s*/i, '')}`,
+        s.totalEnrolled,
+        s.passed,
+        s.failed,
+        `${s.passPercentage}%`,
+        s.avgMarks > 0 ? `${s.avgMarks}` : '-',
+      ]),
+      theme: 'striped',
+      headStyles: {
+        fillColor: [79, 70, 229], // Indigo 600
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 8.5,
+      },
+      styles: {
+        fontSize: 8.5,
+        cellPadding: 2.5,
+        valign: 'middle',
+      },
+      columnStyles: {
+        0: { cellWidth: 35, fontStyle: 'bold' },
+        1: { cellWidth: 32, halign: 'center' },
+        2: { cellWidth: 25, halign: 'center' },
+        3: { cellWidth: 25, halign: 'center' },
+        4: { cellWidth: 30, halign: 'center', fontStyle: 'bold', textColor: [5, 150, 105] },
+        5: { cellWidth: 33, halign: 'center', fontStyle: 'bold' },
+      },
+    });
   }
 
   // --- PAGE 2: DETAILED STUDENT REGISTER ---

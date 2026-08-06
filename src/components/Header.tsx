@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FileSpreadsheet, Upload, Download, GraduationCap, LogOut, ShieldCheck, Database, Save, BarChart3, RefreshCw, DatabaseBackup, Lock, Unlock, Layers } from 'lucide-react';
 import { StudentRecord, AuthUser } from '../types';
-import { isStudentPass, getDepartmentFromUsn } from '../utils/statusHelper';
+import { isStudentPass, getDepartmentFromUsn, filterRecordsBySemester, getAvailableSemesters } from '../utils/statusHelper';
 import { ExportFormatModal } from './ExportFormatModal';
 
 interface HeaderProps {
@@ -10,9 +10,9 @@ interface HeaderProps {
   onOpenUpload: () => void;
   onOpenStatus: () => void;
   onPasteClipboard: () => void;
-  onExportExcel: () => void;
-  onExportPDF: () => void;
-  onExportPDFLandscape: () => void;
+  onExportExcel: (overrideSemester?: string) => void;
+  onExportPDF: (overrideSemester?: string) => void;
+  onExportPDFLandscape: (overrideSemester?: string) => void;
   onSaveToDatabase: () => void;
   onReloadDatabase: () => void;
   onClearAll: () => void;
@@ -23,6 +23,8 @@ interface HeaderProps {
   isLocked: boolean;
   onLock: () => void;
   onUnlockClick: () => void;
+  selectedSemester?: string;
+  onSemesterChange?: (sem: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -44,11 +46,15 @@ export const Header: React.FC<HeaderProps> = ({
   isLocked,
   onLock,
   onUnlockClick,
+  selectedSemester = 'ALL',
+  onSemesterChange,
 }) => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const totalStudents = records.length;
+  const availableSemesters = getAvailableSemesters(records);
+  const activeRecords = filterRecordsBySemester(records, selectedSemester);
+  const totalStudents = activeRecords.length;
   const uniqueSubjectsSet = new Set<string>();
-  records.forEach((r) => {
+  activeRecords.forEach((r) => {
     if (r.subjects && Array.isArray(r.subjects)) {
       r.subjects.forEach((sub) => {
         if (sub && sub.subjectName) {
@@ -64,7 +70,7 @@ export const Header: React.FC<HeaderProps> = ({
   });
   const totalSubjects = uniqueSubjectsSet.size;
   const deptSet = new Set<string>();
-  records.forEach((r) => {
+  activeRecords.forEach((r) => {
     const dept = getDepartmentFromUsn(r.usn);
     if (dept) {
       deptSet.add(dept.short);
@@ -72,16 +78,18 @@ export const Header: React.FC<HeaderProps> = ({
   });
   const deptDisplay = deptSet.size > 0 ? Array.from(deptSet).join(', ') : 'N/A';
 
-  // Find semester number from records
-  let semesterNumber = '';
-  for (const rec of records) {
-    if (rec.semester) {
-      semesterNumber = String(rec.semester).trim();
-      break;
+  // Find semester number from activeRecords or selectedSemester
+  let semesterNumber = selectedSemester !== 'ALL' ? selectedSemester : '';
+  if (!semesterNumber) {
+    for (const rec of activeRecords) {
+      if (rec.semester) {
+        semesterNumber = String(rec.semester).trim();
+        break;
+      }
     }
   }
 
-  const passCount = records.filter(r => isStudentPass(r)).length;
+  const passCount = activeRecords.filter(r => isStudentPass(r)).length;
   const passPercentage = totalStudents > 0 ? Math.round((passCount / totalStudents) * 100) : 0;
 
   return (
@@ -130,7 +138,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Quick Stats - Desktop (XL+) */}
-          {totalStudents > 0 && (
+          {records.length > 0 && (
             <div className="hidden xl:flex items-center space-x-4 bg-slate-50 px-3.5 py-1.5 rounded-lg border border-slate-200 text-xs shrink-0">
               <div>
                 <span className="text-slate-500 block text-[11px]">Records</span>
@@ -146,10 +154,32 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="text-slate-500 block text-[11px]">Department</span>
                 <div className="flex items-center space-x-2">
                   <span className="text-sm font-bold text-indigo-700 font-mono">{deptDisplay}</span>
-                  {semesterNumber && (
-                    <span className="text-xs font-bold text-[#DC2626] font-mono bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100 uppercase tracking-tight">
-                      SEM : {semesterNumber}
-                    </span>
+                  {onSemesterChange ? (
+                    <select
+                      value={selectedSemester}
+                      onChange={(e) => onSemesterChange(e.target.value)}
+                      className="bg-rose-50 text-[#DC2626] font-bold text-xs py-0.5 px-1.5 rounded border border-rose-200 font-mono cursor-pointer focus:outline-none"
+                    >
+                      <option value="ALL">ALL SEMS</option>
+                      {availableSemesters.map((sem) => (
+                        <option key={sem} value={sem}>
+                          SEM : {sem.replace(/^sem\s*/i, '')}
+                        </option>
+                      ))}
+                      {['1', '2', '3', '4', '5', '6', '7', '8'].map((s) => (
+                        !availableSemesters.includes(s) && !availableSemesters.some((x) => x.toLowerCase().includes(s)) && (
+                          <option key={`hdr-opt-${s}`} value={s}>
+                            SEM : {s}
+                          </option>
+                        )
+                      ))}
+                    </select>
+                  ) : (
+                    semesterNumber && (
+                      <span className="text-xs font-bold text-[#DC2626] font-mono bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100 uppercase tracking-tight">
+                        SEM : {semesterNumber}
+                      </span>
+                    )
                   )}
                 </div>
               </div>
@@ -162,16 +192,38 @@ export const Header: React.FC<HeaderProps> = ({
           )}
 
           {/* Mobile Quick Stats Bar */}
-          {totalStudents > 0 && (
+          {records.length > 0 && (
             <div className="flex xl:hidden items-center justify-around bg-slate-50 px-1 py-1 rounded-md border border-slate-200/80 text-[11px] text-slate-600">
               <span><strong className="text-slate-900">{totalStudents}</strong> Records</span>
               <span className="text-slate-300">•</span>
               <span><strong className="text-emerald-700">{totalSubjects}</strong> Subjects</span>
               <span className="text-slate-300">•</span>
-              <span className="font-mono text-indigo-700 font-bold">
+              <span className="font-mono text-indigo-700 font-bold flex items-center gap-1">
                 Dept:{deptDisplay}
-                {semesterNumber && (
-                  <span className="ml-1.5 text-[#DC2626] font-bold">SEM:{semesterNumber}</span>
+                {onSemesterChange ? (
+                  <select
+                    value={selectedSemester}
+                    onChange={(e) => onSemesterChange(e.target.value)}
+                    className="bg-rose-50 text-[#DC2626] font-bold text-[10px] py-0 px-1 rounded border border-rose-200 cursor-pointer focus:outline-none"
+                  >
+                    <option value="ALL">SEM: ALL</option>
+                    {availableSemesters.map((sem) => (
+                      <option key={sem} value={sem}>
+                        SEM: {sem.replace(/^sem\s*/i, '')}
+                      </option>
+                    ))}
+                    {['1', '2', '3', '4', '5', '6', '7', '8'].map((s) => (
+                      !availableSemesters.includes(s) && !availableSemesters.some((x) => x.toLowerCase().includes(s)) && (
+                        <option key={`hdr-mob-opt-${s}`} value={s}>
+                          SEM: {s}
+                        </option>
+                      )
+                    ))}
+                  </select>
+                ) : (
+                  semesterNumber && (
+                    <span className="ml-1.5 text-[#DC2626] font-bold">SEM:{semesterNumber}</span>
+                  )
                 )}
               </span>
               <span className="text-slate-300">•</span>
@@ -298,6 +350,9 @@ export const Header: React.FC<HeaderProps> = ({
       onExportExcel={onExportExcel}
       onExportPDF={onExportPDF}
       onExportPDFLandscape={onExportPDFLandscape}
+      selectedSemester={selectedSemester}
+      onSemesterChange={onSemesterChange}
+      records={records}
     />
     </>
   );

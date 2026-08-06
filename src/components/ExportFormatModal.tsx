@@ -1,12 +1,17 @@
 import React from 'react';
-import { X, FileSpreadsheet, FileText, Download, Table2 } from 'lucide-react';
+import { X, FileSpreadsheet, FileText, Download, Table2, Layers } from 'lucide-react';
+import { StudentRecord } from '../types';
+import { filterRecordsBySemester, getAvailableSemesters } from '../utils/statusHelper';
 
 interface ExportFormatModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onExportExcel: () => void;
-  onExportPDF: () => void;
-  onExportPDFLandscape: () => void;
+  onExportExcel: (overrideSemester?: string) => void;
+  onExportPDF: (overrideSemester?: string) => void;
+  onExportPDFLandscape: (overrideSemester?: string) => void;
+  selectedSemester?: string;
+  onSemesterChange?: (sem: string) => void;
+  records?: StudentRecord[];
 }
 
 export const ExportFormatModal: React.FC<ExportFormatModalProps> = ({
@@ -15,8 +20,14 @@ export const ExportFormatModal: React.FC<ExportFormatModalProps> = ({
   onExportExcel,
   onExportPDF,
   onExportPDFLandscape,
+  selectedSemester = 'ALL',
+  onSemesterChange,
+  records = [],
 }) => {
   if (!isOpen) return null;
+
+  const availableSemesters = getAvailableSemesters(records);
+  const exportRecords = filterRecordsBySemester(records, selectedSemester);
 
   return (
     <div
@@ -35,7 +46,7 @@ export const ExportFormatModal: React.FC<ExportFormatModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">Export Student Records</h3>
-              <p className="text-[11px] text-slate-500">Select your preferred document format</p>
+              <p className="text-[11px] text-slate-500">Select semester filter & preferred document format</p>
             </div>
           </div>
           <button
@@ -46,12 +57,51 @@ export const ExportFormatModal: React.FC<ExportFormatModalProps> = ({
           </button>
         </div>
 
+        {/* Semester Scope Banner */}
+        <div className="p-3.5 rounded-xl bg-red-50/90 border border-red-200 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Layers className="w-4 h-4 text-red-600" />
+              <span className="text-xs font-bold text-red-600">
+                Semester Scope:
+              </span>
+            </div>
+            {onSemesterChange && (
+              <select
+                value={selectedSemester}
+                onChange={(e) => onSemesterChange(e.target.value)}
+                className="bg-white text-red-600 font-bold py-1 px-2.5 rounded-md border border-red-200 focus:outline-none focus:border-red-500 shadow-2xs text-xs cursor-pointer"
+              >
+                <option value="ALL">All Semesters</option>
+                {availableSemesters.map((sem) => (
+                  <option key={sem} value={sem}>
+                    Sem {sem.replace(/^sem\s*/i, '')}
+                  </option>
+                ))}
+                {['1', '2', '3', '4', '5', '6', '7', '8'].map((s) => (
+                  !availableSemesters.includes(s) && !availableSemesters.some((x) => x.toLowerCase().includes(s)) && (
+                    <option key={`opt-${s}`} value={s}>
+                      Sem {s}
+                    </option>
+                  )
+                ))}
+              </select>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-600">
+            Exporting <span className="font-bold text-red-700">{exportRecords.length} student record{exportRecords.length !== 1 ? 's' : ''}</span> for{' '}
+            <span className="font-bold text-red-700">
+              {selectedSemester === 'ALL' ? 'All Semesters' : `Semester ${selectedSemester}`}
+            </span>.
+          </p>
+        </div>
+
         {/* Format Selector Cards */}
         <div className="space-y-3">
           {/* Excel Export Card */}
           <button
             onClick={() => {
-              onExportExcel();
+              onExportExcel(selectedSemester);
               onClose();
             }}
             className="w-full text-left flex items-start space-x-4 p-4 rounded-xl border border-slate-200 hover:border-emerald-500 bg-white hover:bg-emerald-50/20 transition-all cursor-pointer group"
@@ -64,7 +114,7 @@ export const ExportFormatModal: React.FC<ExportFormatModalProps> = ({
                 Microsoft Excel (.xlsx)
               </h4>
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                Best for calculations, data analysis, and importing into other spreadsheet software. Includes subject metrics and color indicators.
+                Exports formatted .xlsx spreadsheet filtered for {selectedSemester === 'ALL' ? 'all semesters' : `Semester ${selectedSemester}`}.
               </p>
             </div>
           </button>
@@ -72,7 +122,7 @@ export const ExportFormatModal: React.FC<ExportFormatModalProps> = ({
           {/* PDF Export Card (Portrait) */}
           <button
             onClick={() => {
-              onExportPDF();
+              onExportPDF(selectedSemester);
               onClose();
             }}
             className="w-full text-left flex items-start space-x-4 p-4 rounded-xl border border-slate-200 hover:border-red-500 bg-white hover:bg-red-50/20 transition-all cursor-pointer group"
@@ -85,7 +135,7 @@ export const ExportFormatModal: React.FC<ExportFormatModalProps> = ({
                 PDF Summary Report (Portrait)
               </h4>
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                Best for printing, archiving, and sharing a polished, formatted report. Includes ranking charts, college headers, and subject statistics.
+                Formatted PDF summary report filtered for {selectedSemester === 'ALL' ? 'all semesters' : `Semester ${selectedSemester}`}.
               </p>
             </div>
           </button>
@@ -93,7 +143,7 @@ export const ExportFormatModal: React.FC<ExportFormatModalProps> = ({
           {/* PDF Export Card (Landscape) */}
           <button
             onClick={() => {
-              onExportPDFLandscape();
+              onExportPDFLandscape(selectedSemester);
               onClose();
             }}
             className="w-full text-left flex items-start space-x-4 p-4 rounded-xl border border-slate-200 hover:border-indigo-500 bg-white hover:bg-indigo-50/20 transition-all cursor-pointer group"
@@ -106,7 +156,7 @@ export const ExportFormatModal: React.FC<ExportFormatModalProps> = ({
                 PDF Detailed Register (Landscape)
               </h4>
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                Detailed wide sheet with student USN, Name, subject-wise total marks, and overall results. Features a space-efficient layout and subject code headers.
+                Detailed wide register with all subject breakdown for {selectedSemester === 'ALL' ? 'all semesters' : `Semester ${selectedSemester}`}.
               </p>
             </div>
           </button>

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, Plus, Edit2, FileText, CheckCircle2, XCircle, Eye, ChevronRight, Sparkles, Loader2, RefreshCw, AlertCircle, Lock, Download } from 'lucide-react';
+import { X, Save, Trash2, Plus, Edit2, FileText, CheckCircle2, XCircle, Eye, ChevronRight, Sparkles, Loader2, RefreshCw, AlertCircle, Lock, Download, ChevronDown, ChevronUp, Layers } from 'lucide-react';
 import { StudentRecord, SubjectResult } from '../types';
-import { isStudentPass, getEffectiveStatus, getDepartmentFromUsn } from '../utils/statusHelper';
+import { isStudentPass, isSubjectPass, getEffectiveStatus, getDepartmentFromUsn, getStudentTotalMarks } from '../utils/statusHelper';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 
 interface StudentDetailModalProps {
   student: StudentRecord | null;
+  allRecords?: StudentRecord[];
   isOpen: boolean;
   onClose: () => void;
   onSave: (updatedStudent: StudentRecord) => void;
@@ -16,6 +17,7 @@ interface StudentDetailModalProps {
 
 export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   student,
+  allRecords = [],
   isOpen,
   onClose,
   onSave,
@@ -29,6 +31,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   const [reanalyzeStatus, setReanalyzeStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showRecordDeleteConfirm, setShowRecordDeleteConfirm] = useState<boolean>(false);
   const [subjectToDeleteIndex, setSubjectToDeleteIndex] = useState<number | null>(null);
+  const [expandedSemId, setExpandedSemId] = useState<string | null>(null);
 
   useEffect(() => {
     if (student) {
@@ -36,8 +39,15 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
       setFormData(JSON.parse(JSON.stringify(student)));
       setReanalyzeStatus(null);
       setIsReanalyzing(false);
+      setExpandedSemId(student.id);
     }
   }, [student]);
+
+  const matchingUsnRecords = React.useMemo(() => {
+    if (!formData?.usn || !allRecords || allRecords.length === 0) return [];
+    const cleanUsn = formData.usn.trim().toUpperCase();
+    return allRecords.filter((r) => r.usn && r.usn.trim().toUpperCase() === cleanUsn);
+  }, [formData?.usn, allRecords]);
 
   if (!isOpen || !formData) return null;
 
@@ -392,6 +402,147 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
             {/* Right / Main Column: Structured Fields & Subjects */}
             <div className={`${formData.imageUrl && showOriginalImage ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-5`}>
               
+              {/* CONSOLIDATED STUDENT USN PROFILE (MULTI-SEM ACCORDION) */}
+              {matchingUsnRecords.length > 0 && (
+                <div className="bg-gradient-to-br from-indigo-50/90 via-slate-50 to-white border border-indigo-200/90 rounded-xl p-3.5 space-y-3 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="p-1.5 rounded-lg bg-indigo-600 text-white font-mono font-bold text-xs flex items-center justify-center shrink-0">
+                        <Layers className="w-3.5 h-3.5 mr-1" />
+                        <span>{matchingUsnRecords.length} Sems</span>
+                      </div>
+                      <div>
+                        <h3 className="text-xs font-bold text-indigo-950 uppercase tracking-wider">
+                          Consolidated USN Profile: {formData.usn}
+                        </h3>
+                        <p className="text-[11px] text-indigo-700">
+                          {matchingUsnRecords.length > 1
+                            ? `Found ${matchingUsnRecords.length} semester records for this USN. Click below to expand & compare.`
+                            : 'Single semester record on file.'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {matchingUsnRecords.map((rec) => {
+                      const isCurrentActive = rec.id === formData.id;
+                      const isExpanded = expandedSemId === rec.id;
+                      const isPass = isStudentPass(rec);
+                      const marksInfo = getStudentTotalMarks(rec);
+
+                      return (
+                        <div
+                          key={rec.id}
+                          className={`border rounded-lg overflow-hidden transition-all ${
+                            isCurrentActive
+                              ? 'border-indigo-400 bg-white ring-2 ring-indigo-200 shadow-2xs'
+                              : 'border-slate-200 bg-white hover:bg-slate-50/80'
+                          }`}
+                        >
+                          {/* Accordion Header */}
+                          <div
+                            onClick={() => setExpandedSemId(isExpanded ? null : rec.id)}
+                            className="flex items-center justify-between px-3 py-2 cursor-pointer select-none text-xs"
+                          >
+                            <div className="flex items-center space-x-2 min-w-0">
+                              <span className="px-2 py-0.5 rounded bg-slate-900 text-white font-bold text-[11px] shrink-0">
+                                Sem {rec.semester || 'N/A'}
+                              </span>
+                              <span className="font-bold text-slate-800 truncate">
+                                {rec.examination || 'Semester Examination'}
+                              </span>
+                              {isCurrentActive && (
+                                <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-extrabold text-[10px] shrink-0">
+                                  Active Editing
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center space-x-2 shrink-0">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                isPass ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                              }`}>
+                                {isPass ? 'PASS' : 'FAIL'}
+                              </span>
+                              <span className="text-xs font-bold text-slate-700">
+                                {marksInfo.hasValid ? `${marksInfo.sum} Mks` : '-'}
+                              </span>
+                              {isExpanded ? (
+                                <ChevronUp className="w-4 h-4 text-slate-400" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4 text-slate-400" />
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Accordion Body */}
+                          {isExpanded && (
+                            <div className="p-3 border-t border-slate-100 bg-slate-50/80 space-y-2 text-xs">
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] bg-white p-2 rounded border border-slate-200">
+                                <div>
+                                  <span className="text-slate-400 block">SGPA:</span>
+                                  <span className="font-bold text-slate-800">{rec.sgpa || 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 block">CGPA:</span>
+                                  <span className="font-bold text-slate-800">{rec.cgpa || 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 block">Subjects:</span>
+                                  <span className="font-bold text-slate-800">{rec.subjects?.length || 0}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 block">Date:</span>
+                                  <span className="font-medium text-slate-600">
+                                    {new Date(rec.uploadedAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Subject Quick Badges */}
+                              <div className="flex flex-wrap gap-1 pt-1">
+                                {rec.subjects?.map((sub, sIdx) => {
+                                  const subPass = isSubjectPass(sub);
+                                  return (
+                                    <span
+                                      key={sIdx}
+                                      className={`inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${
+                                        subPass
+                                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                          : 'bg-red-50 text-red-800 border-red-200'
+                                      }`}
+                                    >
+                                      <span className="font-mono font-bold">{sub.subjectCode || 'SUB'}:</span>
+                                      <span>{sub.totalMarks || sub.result}</span>
+                                    </span>
+                                  );
+                                })}
+                              </div>
+
+                              {!isCurrentActive && (
+                                <div className="pt-2 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setFormData(JSON.parse(JSON.stringify(rec)));
+                                      setExpandedSemId(rec.id);
+                                    }}
+                                    className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-[11px] transition-colors cursor-pointer shadow-2xs"
+                                  >
+                                    Switch Active View to Sem {rec.semester}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Primary Metadata Box */}
               <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-4 space-y-4">
                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">

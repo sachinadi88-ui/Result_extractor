@@ -34,6 +34,8 @@ interface ResultsTableProps {
   onUpdateRecords?: (updatedRecords: StudentRecord[]) => void;
   isLocked?: boolean;
   onRequestUnlock?: () => void;
+  semesterFilter?: string;
+  onSemesterChange?: (sem: string) => void;
 }
 
 export const ResultsTable: React.FC<ResultsTableProps> = ({
@@ -44,14 +46,37 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   onUpdateRecords,
   isLocked = false,
   onRequestUnlock,
+  semesterFilter: propSemesterFilter,
+  onSemesterChange,
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [localSemesterFilter, setLocalSemesterFilter] = useState<string>('ALL');
+
+  const semesterFilter = propSemesterFilter !== undefined ? propSemesterFilter : localSemesterFilter;
+  const setSemesterFilter = (val: string) => {
+    if (onSemesterChange) {
+      onSemesterChange(val);
+    } else {
+      setLocalSemesterFilter(val);
+    }
+  };
   const [viewMode, setViewMode] = useState<'row-summary' | 'matrix' | 'cards'>('matrix');
   const [copiedUsn, setCopiedUsn] = useState<string | null>(null);
   const [sortField, setSortField] = useState<'usn' | 'name' | 'uploadedAt'>('usn');
   const [sortAsc, setSortAsc] = useState<boolean>(true);
   const [deletingStudent, setDeletingStudent] = useState<StudentRecord | null>(null);
+
+  // Derive unique semesters present in records
+  const availableSemesters = React.useMemo(() => {
+    const sems = new Set<string>();
+    records.forEach((r) => {
+      if (r.semester && r.semester.trim()) {
+        sems.add(r.semester.trim());
+      }
+    });
+    return Array.from(sems).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [records]);
 
   const handleToggleNonCreditColumn = (columnIndex: number, subjectCode: string, isChecked: boolean) => {
     if (isLocked) {
@@ -104,7 +129,18 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
       (statusFilter === 'PASS' && isPass) ||
       (statusFilter === 'FAIL' && !isPass);
 
-    return matchesQuery && matchesStatus;
+    const recSem = (rec.semester || '').trim().toLowerCase();
+    const filterSem = semesterFilter.trim().toLowerCase();
+    const matchesSemester =
+      semesterFilter === 'ALL' ||
+      recSem === filterSem ||
+      recSem.includes(`sem ${filterSem}`) ||
+      recSem.includes(`${filterSem}th`) ||
+      recSem.includes(`${filterSem}st`) ||
+      recSem.includes(`${filterSem}nd`) ||
+      recSem.includes(`${filterSem}rd`);
+
+    return matchesQuery && matchesStatus && matchesSemester;
   });
 
   // Sort records
@@ -265,6 +301,31 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
         {/* Filter & View Mode */}
         <div className="flex flex-wrap items-center gap-2">
           
+          {/* Semester Filter */}
+          <div className="flex items-center bg-red-50 px-2 py-1 rounded-lg border border-red-200 text-xs">
+            <span className="text-red-600 font-bold text-[11px] mr-1.5 hidden sm:inline">Semester:</span>
+            <select
+              value={semesterFilter}
+              onChange={(e) => setSemesterFilter(e.target.value)}
+              className="bg-white text-red-600 font-bold py-1 px-2.5 rounded-md border border-red-200 focus:outline-none focus:border-red-500 shadow-2xs text-xs cursor-pointer"
+            >
+              <option value="ALL">All Semesters</option>
+              {availableSemesters.map((sem) => (
+                <option key={sem} value={sem}>
+                  Sem {sem.replace(/^sem\s*/i, '')}
+                </option>
+              ))}
+              {/* Default common semester options if not already listed */}
+              {['1', '2', '3', '4', '5', '6', '7', '8'].map((s) => (
+                !availableSemesters.includes(s) && !availableSemesters.some((x) => x.toLowerCase().includes(s)) && (
+                  <option key={`opt-${s}`} value={s}>
+                    Sem {s}
+                  </option>
+                )
+              ))}
+            </select>
+          </div>
+
           {/* Status Filter */}
           <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-medium">
             <button

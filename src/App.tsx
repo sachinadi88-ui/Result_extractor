@@ -14,7 +14,7 @@ import { NewView } from './components/NewView';
 import { StudentRecord, AuthUser } from './types';
 import { getStoredStudentRecords, saveStudentRecords, exportToExcel } from './utils/storage';
 import { exportToPDF, exportToPDFLandscape } from './utils/pdfExport';
-import { getEffectiveStatus, getDepartmentFromUsn } from './utils/statusHelper';
+import { getEffectiveStatus, getDepartmentFromUsn, filterRecordsBySemester } from './utils/statusHelper';
 import {
   saveRecordToFirestore,
   saveMultipleRecordsToFirestore,
@@ -53,6 +53,7 @@ export default function App() {
   const [isBackupOpen, setIsBackupOpen] = useState<boolean>(false);
   const [isFacultyModalOpen, setIsFacultyModalOpen] = useState<boolean>(false);
   const [currentView, setCurrentView] = useState<'main' | 'newView'>('main');
+  const [selectedSemester, setSelectedSemester] = useState<string>('ALL');
   
   // Security locks (Default to locked unless explicitly unlocked by typing password)
   const [isLocked, setIsLocked] = useState<boolean>(() => {
@@ -272,25 +273,46 @@ export default function App() {
     }
   };
 
-  const handleExportExcel = () => {
-    exportToExcel(records);
-    showToast('Exporting student results to formatted Excel (.xlsx)...');
+  const handleExportExcel = (overrideSemester?: string) => {
+    const semToUse = typeof overrideSemester === 'string' && overrideSemester.length > 0 ? overrideSemester : selectedSemester;
+    const exportRecords = filterRecordsBySemester(records, semToUse);
+    if (exportRecords.length === 0) {
+      showToast(`No student records found for Semester "${semToUse}".`);
+      return;
+    }
+    const semLabel = semToUse === 'ALL' ? 'All Semesters' : `Semester ${semToUse}`;
+    exportToExcel(exportRecords);
+    showToast(`Exporting ${exportRecords.length} records (${semLabel}) to formatted Excel (.xlsx)...`);
   };
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = async (overrideSemester?: string) => {
     try {
-      showToast('Preparing PDF document, generating statistics & rankings...');
-      await exportToPDF(records);
+      const semToUse = typeof overrideSemester === 'string' && overrideSemester.length > 0 ? overrideSemester : selectedSemester;
+      const exportRecords = filterRecordsBySemester(records, semToUse);
+      if (exportRecords.length === 0) {
+        showToast(`No student records found for Semester "${semToUse}".`);
+        return;
+      }
+      const semLabel = semToUse === 'ALL' ? 'All Semesters' : `Semester ${semToUse}`;
+      showToast(`Preparing PDF document for ${exportRecords.length} records (${semLabel})...`);
+      await exportToPDF(exportRecords);
     } catch (err) {
       console.error('Error generating PDF:', err);
       showToast('Failed to export PDF document.');
     }
   };
 
-  const handleExportPDFLandscape = async () => {
+  const handleExportPDFLandscape = async (overrideSemester?: string) => {
     try {
-      showToast('Preparing Landscape PDF, generating student-wise comprehensive sheet...');
-      await exportToPDFLandscape(records);
+      const semToUse = typeof overrideSemester === 'string' && overrideSemester.length > 0 ? overrideSemester : selectedSemester;
+      const exportRecords = filterRecordsBySemester(records, semToUse);
+      if (exportRecords.length === 0) {
+        showToast(`No student records found for Semester "${semToUse}".`);
+        return;
+      }
+      const semLabel = semToUse === 'ALL' ? 'All Semesters' : `Semester ${semToUse}`;
+      showToast(`Preparing Landscape PDF for ${exportRecords.length} records (${semLabel})...`);
+      await exportToPDFLandscape(exportRecords);
     } catch (err) {
       console.error('Error generating Landscape PDF:', err);
       showToast('Failed to export Landscape PDF.');
@@ -402,6 +424,8 @@ export default function App() {
         isLocked={isLocked}
         onLock={handleLock}
         onUnlockClick={() => setIsPasswordModalOpen(true)}
+        selectedSemester={selectedSemester}
+        onSemesterChange={setSelectedSemester}
       />
 
       {/* Main Container */}
@@ -476,10 +500,22 @@ export default function App() {
                 setIsPasswordModalOpen(true);
                 showToast('System is locked. Please enter password to unlock editing options.');
               }}
+              semesterFilter={selectedSemester}
+              onSemesterChange={setSelectedSemester}
             />
           </>
         ) : (
-          <NewView onBackToMain={() => setCurrentView('main')} />
+          <NewView
+            records={records}
+            onBackToMain={() => setCurrentView('main')}
+            onExportPDF={handleExportPDF}
+            onExportPDFLandscape={handleExportPDFLandscape}
+            onExportExcel={handleExportExcel}
+            onSelectStudent={(student) => {
+              setSelectedStudent(student);
+              setIsDetailOpen(true);
+            }}
+          />
         )}
       </main>
 
@@ -508,6 +544,7 @@ export default function App() {
           setSelectedStudent(null);
         }}
         student={selectedStudent}
+        allRecords={records}
         onSave={handleSaveStudent}
         onDelete={handleDeleteStudent}
         isLocked={isLocked}
