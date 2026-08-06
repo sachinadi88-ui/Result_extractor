@@ -502,6 +502,8 @@ export default function App() {
               }}
               semesterFilter={selectedSemester}
               onSemesterChange={setSelectedSemester}
+              onOpenNewView={() => setCurrentView((prev) => (prev === 'main' ? 'newView' : 'main'))}
+              currentView={currentView}
             />
           </>
         ) : (

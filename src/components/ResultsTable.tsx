@@ -20,7 +20,8 @@ import {
   ArrowUpDown,
   ChevronLeft,
   ChevronRight,
-  MoveHorizontal
+  MoveHorizontal,
+  Layers
 } from 'lucide-react';
 import { StudentRecord, SubjectResult } from '../types';
 import { isSubjectPass, isStudentPass, getEffectiveStatus, getStudentTotalMarks } from '../utils/statusHelper';
@@ -36,6 +37,8 @@ interface ResultsTableProps {
   onRequestUnlock?: () => void;
   semesterFilter?: string;
   onSemesterChange?: (sem: string) => void;
+  onOpenNewView?: () => void;
+  currentView?: 'main' | 'newView';
 }
 
 export const ResultsTable: React.FC<ResultsTableProps> = ({
@@ -48,6 +51,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   onRequestUnlock,
   semesterFilter: propSemesterFilter,
   onSemesterChange,
+  onOpenNewView,
+  currentView = 'main',
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -325,6 +330,22 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               ))}
             </select>
           </div>
+
+          {/* New View Button placed right beside Semester Filter */}
+          {onOpenNewView && (
+            <button
+              onClick={onOpenNewView}
+              title={currentView === 'newView' ? "Switch to Main View" : "Open New View"}
+              className={`inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shadow-xs cursor-pointer shrink-0 ${
+                currentView === 'newView'
+                  ? 'bg-indigo-700 hover:bg-indigo-800 text-white ring-2 ring-indigo-400'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 text-white shrink-0" />
+              <span>{currentView === 'newView' ? 'Main View' : 'New View'}</span>
+            </button>
+          )}
 
           {/* Status Filter */}
           <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-medium">

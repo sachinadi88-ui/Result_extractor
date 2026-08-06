@@ -304,19 +304,6 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <DatabaseBackup className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
-
-              <button
-                onClick={onOpenNewView}
-                title={currentView === 'newView' ? "Switch to Main View" : "Open New View"}
-                className={`inline-flex items-center justify-center space-x-1 px-2 py-1.5 sm:px-2.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer shrink-0 ${
-                  currentView === 'newView'
-                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white ring-2 ring-indigo-400'
-                    : 'bg-slate-800 hover:bg-slate-900 text-white'
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-300" />
-                <span>{currentView === 'newView' ? 'Main View' : 'New View'}</span>
-              </button>
             </div>
 
             {/* Display Logged-In User Profile Photo & Name - Desktop (lg+) */}
