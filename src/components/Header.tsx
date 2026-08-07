@@ -160,6 +160,7 @@ export const Header: React.FC<HeaderProps> = ({
                       onChange={(e) => onSemesterChange(e.target.value)}
                       className="bg-rose-50 text-[#DC2626] font-bold text-xs py-0.5 px-1.5 rounded border border-rose-200 font-mono cursor-pointer focus:outline-none"
                     >
+                      <option value="">-- Select Sem --</option>
                       <option value="ALL">ALL SEMS</option>
                       {availableSemesters.map((sem) => (
                         <option key={sem} value={sem}>
@@ -206,6 +207,7 @@ export const Header: React.FC<HeaderProps> = ({
                     onChange={(e) => onSemesterChange(e.target.value)}
                     className="bg-rose-50 text-[#DC2626] font-bold text-[10px] py-0 px-1 rounded border border-rose-200 cursor-pointer focus:outline-none"
                   >
+                    <option value="">SEM: SELECT</option>
                     <option value="ALL">SEM: ALL</option>
                     {availableSemesters.map((sem) => (
                       <option key={sem} value={sem}>

@@ -11,6 +11,7 @@ import { BackupModal } from './components/BackupModal';
 import { PasswordModal } from './components/PasswordModal';
 import { FacultyMapModal } from './components/FacultyMapModal';
 import { NewView } from './components/NewView';
+import { SemesterSelectModal } from './components/SemesterSelectModal';
 import { StudentRecord, AuthUser } from './types';
 import { getStoredStudentRecords, saveStudentRecords, exportToExcel } from './utils/storage';
 import { exportToPDF, exportToPDFLandscape } from './utils/pdfExport';
@@ -53,7 +54,8 @@ export default function App() {
   const [isBackupOpen, setIsBackupOpen] = useState<boolean>(false);
   const [isFacultyModalOpen, setIsFacultyModalOpen] = useState<boolean>(false);
   const [currentView, setCurrentView] = useState<'main' | 'newView'>('main');
-  const [selectedSemester, setSelectedSemester] = useState<string>('ALL');
+  const [selectedSemester, setSelectedSemester] = useState<string>('');
+  const [isSemesterModalOpen, setIsSemesterModalOpen] = useState<boolean>(false);
   
   // Security locks (Default to locked unless explicitly unlocked by typing password)
   const [isLocked, setIsLocked] = useState<boolean>(() => {
@@ -65,6 +67,8 @@ export default function App() {
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(currentUser));
+      setSelectedSemester('');
+      setIsSemesterModalOpen(true);
 
       // Fetch persistent records from Firebase Firestore
       setIsSyncingFirebase(true);
@@ -83,6 +87,8 @@ export default function App() {
     } else {
       localStorage.removeItem(AUTH_STORAGE_KEY);
       setRecords([]);
+      setSelectedSemester('');
+      setIsSemesterModalOpen(false);
     }
   }, [currentUser]);
 
@@ -95,6 +101,8 @@ export default function App() {
 
   const handleLogin = (user: AuthUser) => {
     setCurrentUser(user);
+    setSelectedSemester('');
+    setIsSemesterModalOpen(true);
     setIsLocked(true);
     localStorage.setItem('vtu_database_locked', 'true');
     showToast(`Welcome back, ${user.name}! Logged in as ${user.email}`);
@@ -504,6 +512,7 @@ export default function App() {
               onSemesterChange={setSelectedSemester}
               onOpenNewView={() => setCurrentView((prev) => (prev === 'main' ? 'newView' : 'main'))}
               currentView={currentView}
+              onOpenSemesterModal={() => setIsSemesterModalOpen(true)}
             />
           </>
         ) : (
@@ -664,6 +673,18 @@ export default function App() {
           setIsPasswordModalOpen(true);
           showToast('System is locked. Please enter password to unlock faculty mapping options.');
         }}
+      />
+
+      {/* Semester Selection Popup Modal */}
+      <SemesterSelectModal
+        isOpen={isSemesterModalOpen}
+        onClose={() => setIsSemesterModalOpen(false)}
+        onSelectSemester={(sem) => {
+          setSelectedSemester(sem);
+          setIsSemesterModalOpen(false);
+        }}
+        records={records}
+        currentSemester={selectedSemester}
       />
 
     </div>

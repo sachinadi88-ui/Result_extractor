@@ -39,6 +39,7 @@ interface ResultsTableProps {
   onSemesterChange?: (sem: string) => void;
   onOpenNewView?: () => void;
   currentView?: 'main' | 'newView';
+  onOpenSemesterModal?: () => void;
 }
 
 export const ResultsTable: React.FC<ResultsTableProps> = ({
@@ -53,10 +54,11 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   onSemesterChange,
   onOpenNewView,
   currentView = 'main',
+  onOpenSemesterModal,
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [localSemesterFilter, setLocalSemesterFilter] = useState<string>('ALL');
+  const [localSemesterFilter, setLocalSemesterFilter] = useState<string>('');
 
   const semesterFilter = propSemesterFilter !== undefined ? propSemesterFilter : localSemesterFilter;
   const setSemesterFilter = (val: string) => {
@@ -136,6 +138,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
 
     const recSem = (rec.semester || '').trim().toLowerCase();
     const filterSem = semesterFilter.trim().toLowerCase();
+    if (!filterSem) return false;
+
     const matchesSemester =
       semesterFilter === 'ALL' ||
       recSem === filterSem ||
@@ -314,6 +318,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               onChange={(e) => setSemesterFilter(e.target.value)}
               className="bg-white text-red-600 font-bold py-1 px-2.5 rounded-md border border-red-200 focus:outline-none focus:border-red-500 shadow-2xs text-xs cursor-pointer"
             >
+              <option value="">-- Select Semester --</option>
               <option value="ALL">All Semesters</option>
               {availableSemesters.map((sem) => (
                 <option key={sem} value={sem}>
@@ -410,8 +415,30 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
 
       </div>
 
+      {/* No Semester Selected Prompt State */}
+      {semesterFilter === '' && (
+        <div className="max-w-xl mx-auto my-8 p-8 bg-white border border-slate-200/90 rounded-2xl text-center shadow-sm">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-3 shadow-2xs">
+            <GraduationCap className="w-8 h-8 text-indigo-600" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-900 mb-1.5">Select Semester to Begin</h2>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto mb-5 leading-relaxed">
+            No semester is currently selected. Please choose a semester from the dropdown above or click below to view student marksheets and result statistics.
+          </p>
+          {onOpenSemesterModal && (
+            <button
+              onClick={onOpenSemesterModal}
+              className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer"
+            >
+              <Layers className="w-4 h-4 text-white" />
+              <span>Select Semester</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* VIEW MODE 1: Standard Single-Row Table */}
-      {viewMode === 'row-summary' && (
+      {semesterFilter !== '' && viewMode === 'row-summary' && (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left text-slate-700">
@@ -623,7 +650,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
       )}
 
       {/* VIEW MODE 2: Column Matrix View */}
-      {viewMode === 'matrix' && (
+      {semesterFilter !== '' && viewMode === 'matrix' && (
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col">
           {/* Matrix Top Control & Pan Bar - Sticky below main nav header */}
           <div className="sticky top-[65px] z-40 bg-slate-100 border-b border-slate-200 px-3 py-2 flex items-center space-x-2.5 rounded-t-xl shadow-2xs">
@@ -864,7 +891,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
       )}
 
       {/* VIEW MODE 3: Cards Grid View */}
-      {viewMode === 'cards' && (
+      {semesterFilter !== '' && viewMode === 'cards' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {sortedRecords.map((student) => {
             const isPass = isStudentPass(student);
