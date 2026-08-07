@@ -94,27 +94,13 @@ export default function App() {
     };
   }, []);
 
-  // Sync session & load user records ONLY from Firebase Firestore when currentUser changes
+  // Sync user session state when currentUser changes
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(currentUser));
       setSelectedSemester('');
       setIsSemesterModalOpen(true);
-
-      // Fetch persistent records from Firebase Firestore
-      setIsSyncingFirebase(true);
-      fetchStudentRecordsFromFirestore(currentUser.email).then((remoteRecords) => {
-        setIsSyncingFirebase(false);
-        if (remoteRecords) {
-          setRecords(remoteRecords);
-        } else {
-          setRecords([]);
-        }
-      }).catch((err) => {
-        setIsSyncingFirebase(false);
-        console.error('Error syncing from Firebase Firestore:', err);
-        setRecords([]);
-      });
+      setRecords([]);
     } else {
       localStorage.removeItem(AUTH_STORAGE_KEY);
       setRecords([]);
@@ -122,6 +108,36 @@ export default function App() {
       setIsSemesterModalOpen(false);
     }
   }, [currentUser]);
+
+  // Load student records from Firebase Firestore ONLY upon selecting a semester
+  useEffect(() => {
+    if (!currentUser) {
+      setRecords([]);
+      return;
+    }
+
+    // Do NOT fetch data if no semester is selected (keeps read counts minimal)
+    if (!selectedSemester || selectedSemester.trim() === '') {
+      setRecords([]);
+      return;
+    }
+
+    setIsSyncingFirebase(true);
+    fetchStudentRecordsFromFirestore(currentUser.email, selectedSemester)
+      .then((remoteRecords) => {
+        setIsSyncingFirebase(false);
+        if (remoteRecords) {
+          setRecords(remoteRecords);
+        } else {
+          setRecords([]);
+        }
+      })
+      .catch((err) => {
+        setIsSyncingFirebase(false);
+        console.error('Error syncing from Firebase Firestore:', err);
+        setRecords([]);
+      });
+  }, [currentUser, selectedSemester]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -372,7 +388,7 @@ export default function App() {
     setIsSyncingFirebase(true);
     try {
       // Fetch currently saved records to avoid duplicates
-      const remoteRecords = await fetchStudentRecordsFromFirestore(currentUser.email);
+      const remoteRecords = await fetchStudentRecordsFromFirestore(currentUser.email, selectedSemester);
       const existingIds = new Set(remoteRecords.map(r => r.id));
       const existingUsns = new Set(remoteRecords.map(r => r.usn?.trim().toUpperCase()).filter(Boolean));
 
@@ -407,9 +423,14 @@ export default function App() {
 
   const handleReloadDatabase = async () => {
     if (!currentUser) return;
+    if (!selectedSemester) {
+      showToast('Please select a semester first.');
+      setIsSemesterModalOpen(true);
+      return;
+    }
     setIsSyncingFirebase(true);
     try {
-      const remoteRecords = await fetchStudentRecordsFromFirestore(currentUser.email);
+      const remoteRecords = await fetchStudentRecordsFromFirestore(currentUser.email, selectedSemester);
       if (remoteRecords) {
         setRecords(remoteRecords);
         showToast('Successfully reloaded student records from Firebase.');

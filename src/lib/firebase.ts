@@ -183,13 +183,37 @@ export async function saveMultipleRecordsToFirestore(records: StudentRecord[], u
   }
 }
 
-export async function fetchStudentRecordsFromFirestore(userEmail: string): Promise<StudentRecord[]> {
+import { filterRecordsBySemester } from "../utils/statusHelper";
+
+export async function fetchStudentRecordsFromFirestore(userEmail: string, semesterFilter?: string): Promise<StudentRecord[]> {
   const recordsMap = new Map<string, StudentRecord>();
+
+  const isSpecificSem = semesterFilter && semesterFilter !== 'ALL' && semesterFilter.trim().length > 0;
+  let semVariations: string[] = [];
+  if (isSpecificSem) {
+    const cleanSem = semesterFilter.trim();
+    semVariations = [
+      cleanSem,
+      `Sem ${cleanSem}`,
+      `sem ${cleanSem}`,
+      `Semester ${cleanSem}`,
+      `SEM ${cleanSem}`,
+      `${cleanSem}th Sem`,
+      `${cleanSem}st Sem`,
+      `${cleanSem}nd Sem`,
+      `${cleanSem}rd Sem`
+    ];
+  }
 
   // 1. Fetch from Firestore Primary (student-result-extractor)
   try {
     const recordsCol = collection(db, "student_records");
-    const q = query(recordsCol, where("extractedByEmail", "==", userEmail));
+    let q;
+    if (isSpecificSem) {
+      q = query(recordsCol, where("extractedByEmail", "==", userEmail), where("semester", "in", semVariations));
+    } else {
+      q = query(recordsCol, where("extractedByEmail", "==", userEmail));
+    }
     const querySnapshot = await getDocs(q);
     querySnapshot.forEach((docSnap) => {
       const data = docSnap.data() as StudentRecord;
@@ -198,14 +222,33 @@ export async function fetchStudentRecordsFromFirestore(userEmail: string): Promi
       }
     });
   } catch (error) {
-    console.warn("Primary Firestore fetch notice:", error);
+    console.warn("Primary Firestore targeted fetch notice:", error);
+    // Fallback query by userEmail only if composite query failed
+    try {
+      const recordsCol = collection(db, "student_records");
+      const fallbackQ = query(recordsCol, where("extractedByEmail", "==", userEmail));
+      const querySnapshot = await getDocs(fallbackQ);
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data() as StudentRecord;
+        if (data && data.id) {
+          recordsMap.set(data.id, data);
+        }
+      });
+    } catch (fallbackErr) {
+      console.warn("Primary fallback query error:", fallbackErr);
+    }
   }
 
   // 2. Fetch from Provisioned Firestore if active
   if (dbProvisioned) {
     try {
       const recordsCol = collection(dbProvisioned, "student_records");
-      const q = query(recordsCol, where("extractedByEmail", "==", userEmail));
+      let q;
+      if (isSpecificSem) {
+        q = query(recordsCol, where("extractedByEmail", "==", userEmail), where("semester", "in", semVariations));
+      } else {
+        q = query(recordsCol, where("extractedByEmail", "==", userEmail));
+      }
       const querySnapshot = await getDocs(q);
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data() as StudentRecord;
@@ -218,28 +261,11 @@ export async function fetchStudentRecordsFromFirestore(userEmail: string): Promi
     }
   }
 
-  // 3. Fetch from Realtime Database if accessible - DEACTIVATED to avoid dual-write overhead/free-tier limits
-  /*
-  if (rtdb) {
-    try {
-      const userKey = sanitizeEmailKey(userEmail);
-      const dbRef = ref(rtdb);
-      const snapshot = await get(child(dbRef, `student_records/${userKey}`));
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        Object.values(data).forEach((rec: any) => {
-          if (rec && rec.id) {
-            recordsMap.set(rec.id, rec as StudentRecord);
-          }
-        });
-      }
-    } catch (rtdbErr: any) {
-      console.warn("Realtime DB read skipped (check RTDB rules if needed):", rtdbErr?.message || rtdbErr);
-    }
+  let result = Array.from(recordsMap.values());
+  if (isSpecificSem) {
+    result = filterRecordsBySemester(result, semesterFilter);
   }
-  */
-
-  return Array.from(recordsMap.values());
+  return result;
 }
 
 export async function deleteRecordFromFirestore(recordId: string, userEmail?: string): Promise<void> {

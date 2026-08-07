@@ -80,21 +80,19 @@ export const SemesterSelectModal: React.FC<SemesterSelectModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+        <div className="flex-1 overflow-y-auto space-y-3 pr-1">
           {/* Information banner */}
-          <div className="p-3.5 rounded-xl bg-indigo-50/80 border border-indigo-100 text-xs text-indigo-900 flex items-start space-x-2.5">
-            <Sparkles className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-            <p className="leading-relaxed">
-              No semester is currently selected. Selecting a semester loads only the relevant student records and prevents heavy initial loading.
-            </p>
+          <div className="p-2.5 rounded-lg bg-indigo-50/80 border border-indigo-100 text-xs text-indigo-900 flex items-center space-x-2">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+            <p className="text-xs font-medium">Select a semester to load student marksheets.</p>
           </div>
 
           {/* Quick Grid of Semesters */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5">
+            <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-2">
               Available Semesters
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {allSemKeys.map((semNum) => {
                 const count = semesterCountMap.get(semNum) || 0;
                 const isSelected = currentSemester === semNum;
@@ -105,15 +103,15 @@ export const SemesterSelectModal: React.FC<SemesterSelectModalProps> = ({
                     key={`modal-sem-${semNum}`}
                     type="button"
                     onClick={() => handleChoose(semNum)}
-                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between space-y-2 group ${
+                    className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between group ${
                       isSelected
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-md ring-2 ring-emerald-300'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-300'
                         : hasData
-                        ? 'bg-emerald-50/40 hover:bg-emerald-100/60 border-emerald-200 text-slate-800 hover:border-emerald-400 shadow-2xs'
+                        ? 'bg-emerald-50/50 hover:bg-emerald-100/70 border-emerald-200 text-slate-800 hover:border-emerald-400 shadow-2xs'
                         : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:border-slate-300'
                     }`}
                   >
-                    <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center space-x-1.5 min-w-0 pr-1">
                       <span className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-slate-900'}`}>
                         Sem {semNum}
                       </span>
@@ -125,29 +123,15 @@ export const SemesterSelectModal: React.FC<SemesterSelectModalProps> = ({
                               : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                           }`}
                         >
-                          {count} {count === 1 ? 'rec' : 'recs'}
+                          {count}
                         </span>
                       )}
                     </div>
-
-                    <div className="flex items-center justify-between w-full pt-1">
-                      <span
-                        className={`text-[10px] ${
-                          isSelected
-                            ? 'text-emerald-100'
-                            : hasData
-                            ? 'text-emerald-700 font-medium'
-                            : 'text-slate-400'
-                        }`}
-                      >
-                        {hasData ? 'Data available' : 'Empty'}
-                      </span>
-                      <ArrowRight
-                        className={`w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5 ${
-                          isSelected ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'
-                        }`}
-                      />
-                    </div>
+                    <ArrowRight
+                      className={`w-3.5 h-3.5 shrink-0 transition-transform group-hover:translate-x-0.5 ${
+                        isSelected ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'
+                      }`}
+                    />
                   </button>
                 );
               })}
@@ -155,28 +139,28 @@ export const SemesterSelectModal: React.FC<SemesterSelectModalProps> = ({
           </div>
 
           {/* All Semesters Option */}
-          <div className="pt-2 border-t border-slate-100">
+          <div className="pt-1.5 border-t border-slate-100">
             <button
               type="button"
               onClick={() => handleChoose('ALL')}
-              className={`w-full p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between group ${
+              className={`w-full p-2.5 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between group ${
                 currentSemester === 'ALL'
-                  ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-slate-400'
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-xs ring-2 ring-slate-400'
                   : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800 hover:border-slate-300'
               }`}
             >
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2.5">
                 <div
-                  className={`p-2 rounded-lg ${
+                  className={`p-1.5 rounded-md ${
                     currentSemester === 'ALL'
                       ? 'bg-slate-800 text-emerald-400'
                       : 'bg-white text-slate-600 border border-slate-200'
                   }`}
                 >
-                  <Layers className="w-4 h-4" />
+                  <Layers className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <h4 className="text-xs sm:text-sm font-bold">
+                  <h4 className="text-xs font-bold">
                     View All Semesters
                   </h4>
                   <p
@@ -184,12 +168,12 @@ export const SemesterSelectModal: React.FC<SemesterSelectModalProps> = ({
                       currentSemester === 'ALL' ? 'text-slate-300' : 'text-slate-500'
                     }`}
                   >
-                    Load all combined records across all semesters ({records.length} total records)
+                    Load all combined records ({records.length} records)
                   </p>
                 </div>
               </div>
               <ArrowRight
-                className={`w-4 h-4 transition-transform group-hover:translate-x-1 ${
+                className={`w-3.5 h-3.5 shrink-0 transition-transform group-hover:translate-x-1 ${
                   currentSemester === 'ALL' ? 'text-white' : 'text-slate-400'
                 }`}
               />
