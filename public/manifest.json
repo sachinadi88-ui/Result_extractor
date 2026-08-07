@@ -4,7 +4,7 @@
   "description": "VTU Student Result Extractor, Analytics & Performance Portal",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "any",
+  "orientation": "portrait",
   "background_color": "#0f172a",
   "theme_color": "#4f46e5",
   "scope": "/",
