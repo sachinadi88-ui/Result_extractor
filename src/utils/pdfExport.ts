@@ -76,13 +76,20 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
   const totalPass = records.filter((r) => isStudentPass(r)).length;
   const passPercentage = records.length > 0 ? Math.round((totalPass / records.length) * 1000) / 10 : 0;
 
-  // Find semester number from records
-  let semesterNumber = '';
-  for (const rec of records) {
-    if (rec.semester) {
-      semesterNumber = String(rec.semester).trim();
-      break;
-    }
+  // Find unique semester numbers from records
+  const uniqueSemesters = Array.from(
+    new Set(
+      records
+        .map((r) => (r.semester ? String(r.semester).replace(/^sem\s*/i, '').trim() : ''))
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+  let semesterDisplay = '';
+  if (uniqueSemesters.length === 1) {
+    semesterDisplay = `SEM : ${uniqueSemesters[0]}`;
+  } else if (uniqueSemesters.length > 1) {
+    semesterDisplay = `SEM : ${uniqueSemesters.join(', ')}`;
   }
 
   // Try to load college logo
@@ -165,7 +172,7 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(15, 23, 42); // Dark Slate
-  const semSuffix = semesterNumber ? `   •   SEM : ${semesterNumber}` : '';
+  const semSuffix = semesterDisplay ? `   •   ${semesterDisplay}` : '';
   doc.text(`RESULT ANALYSIS SUMMARY${semSuffix}`, 15, 45);
 
   // Box 1: Enrolled
@@ -244,13 +251,15 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
     autoTable(doc, {
       startY: 86,
       margin: { left: 15, right: 15 },
-      head: [['Rank', 'USN', 'Student Name', 'Total Score']],
-      body: topStudents.map((item, idx) => [
-        `Rank ${idx + 1}`,
-        item.student.usn || '-',
-        item.student.name || '-',
-        item.display,
-      ]),
+      head: uniqueSemesters.length > 1 
+        ? [['Rank', 'USN', 'Student Name', 'Sem', 'Total Score']]
+        : [['Rank', 'USN', 'Student Name', 'Total Score']],
+      body: topStudents.map((item, idx) => {
+        const semVal = item.student.semester ? String(item.student.semester).replace(/^sem\s*/i, '').trim() : '-';
+        return uniqueSemesters.length > 1
+          ? [`Rank ${idx + 1}`, item.student.usn || '-', item.student.name || '-', `Sem ${semVal}`, item.display]
+          : [`Rank ${idx + 1}`, item.student.usn || '-', item.student.name || '-', item.display];
+      }),
       theme: 'striped',
       headStyles: {
         fillColor: [30, 41, 59], // Slate 800
@@ -263,8 +272,14 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
         cellPadding: 2.5,
         valign: 'middle',
       },
-      columnStyles: {
-        0: { cellWidth: 20, fontStyle: 'bold', textColor: [217, 119, 6] }, // Golden/amber text for Rank
+      columnStyles: uniqueSemesters.length > 1 ? {
+        0: { cellWidth: 20, fontStyle: 'bold', textColor: [217, 119, 6] },
+        1: { cellWidth: 32 },
+        2: { cellWidth: 70 },
+        3: { cellWidth: 18, halign: 'center' },
+        4: { cellWidth: 40, halign: 'center', fontStyle: 'bold' },
+      } : {
+        0: { cellWidth: 20, fontStyle: 'bold', textColor: [217, 119, 6] },
         1: { cellWidth: 35 },
         2: { cellWidth: 85 },
         3: { cellWidth: 40, halign: 'center', fontStyle: 'bold' },
@@ -277,124 +292,155 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
     doc.text('No score data available for top performers.', 15, 91);
   }
 
-  // --- SECTION: SUBJECT WISE STATISTICS ---
-  const statsMap = new Map<string, {
-    subjectCode: string;
-    subjectName: string;
-    facultyName: string;
-    totalStudents: number;
-    totalPass: number;
-    totalFail: number;
-    isNonCredit: boolean;
-  }>();
+  // --- SECTION: SUBJECT WISE STATISTICS (GROUPED BY SEMESTER) ---
+  const semesterGroupsMap = new Map<string, StudentRecord[]>();
+  records.forEach((rec) => {
+    const sem = rec.semester ? String(rec.semester).replace(/^sem\s*/i, '').trim() : 'Unassigned';
+    if (!semesterGroupsMap.has(sem)) {
+      semesterGroupsMap.set(sem, []);
+    }
+    semesterGroupsMap.get(sem)!.push(rec);
+  });
 
-  records.forEach((student) => {
-    if (student.subjects && Array.isArray(student.subjects)) {
-      student.subjects.forEach((sub) => {
-        if (!sub || !sub.subjectName) return;
-        const code = (sub.subjectCode || '').trim();
-        const name = (sub.subjectName || '').trim();
-        const faculty = (sub.facultyName || '').trim();
-        const key = code ? `${code.toUpperCase()}::${name.toUpperCase()}` : name.toUpperCase();
+  const sortedSemKeys = Array.from(semesterGroupsMap.keys()).sort((a, b) => {
+    if (a === 'Unassigned') return 1;
+    if (b === 'Unassigned') return -1;
+    return a.localeCompare(b, undefined, { numeric: true });
+  });
 
-        const isPass = isSubjectPass(sub);
+  sortedSemKeys.forEach((semKey) => {
+    const semRecords = semesterGroupsMap.get(semKey) || [];
+    
+    // Compute stats map for this semester
+    const statsMap = new Map<string, {
+      subjectCode: string;
+      subjectName: string;
+      facultyName: string;
+      totalStudents: number;
+      totalPass: number;
+      totalFail: number;
+      isNonCredit: boolean;
+    }>();
 
-        if (!statsMap.has(key)) {
-          statsMap.set(key, {
-            subjectCode: code,
-            subjectName: name,
-            facultyName: faculty,
-            totalStudents: 0,
-            totalPass: 0,
-            totalFail: 0,
-            isNonCredit: !!sub.isNonCredit,
-          });
-        } else {
+    semRecords.forEach((student) => {
+      if (student.subjects && Array.isArray(student.subjects)) {
+        student.subjects.forEach((sub) => {
+          if (!sub || !sub.subjectName) return;
+          const code = (sub.subjectCode || '').trim();
+          const name = (sub.subjectName || '').trim();
+          const faculty = (sub.facultyName || '').trim();
+          const key = code ? `${code.toUpperCase()}::${name.toUpperCase()}` : name.toUpperCase();
+
+          const isPass = isSubjectPass(sub);
+
+          if (!statsMap.has(key)) {
+            statsMap.set(key, {
+              subjectCode: code,
+              subjectName: name,
+              facultyName: faculty,
+              totalStudents: 0,
+              totalPass: 0,
+              totalFail: 0,
+              isNonCredit: !!sub.isNonCredit,
+            });
+          } else {
+            const current = statsMap.get(key)!;
+            if (faculty && !current.facultyName) {
+              current.facultyName = faculty;
+            }
+            if (sub.isNonCredit) {
+              current.isNonCredit = true;
+            }
+          }
+
           const current = statsMap.get(key)!;
-          if (faculty && !current.facultyName) {
-            current.facultyName = faculty;
+          current.totalStudents += 1;
+          if (isPass) {
+            current.totalPass += 1;
+          } else {
+            current.totalFail += 1;
           }
-          if (sub.isNonCredit) {
-            current.isNonCredit = true;
-          }
-        }
+        });
+      }
+    });
 
-        const current = statsMap.get(key)!;
-        current.totalStudents += 1;
-        if (isPass) {
-          current.totalPass += 1;
-        } else {
-          current.totalFail += 1;
-        }
+    const subjectStatsList = Array.from(statsMap.values()).map((stat) => {
+      const passPct = stat.totalStudents > 0 ? (stat.totalPass / stat.totalStudents) * 100 : 0;
+      return {
+        ...stat,
+        passPercentage: Math.round(passPct * 10) / 10,
+      };
+    });
+
+    let currentY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 10 : 110;
+    
+    // Check page break if not enough space
+    if (currentY > 235) {
+      doc.addPage();
+      currentY = 20;
+    }
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(15, 23, 42);
+
+    const semTitle = sortedSemKeys.length > 1
+      ? (semKey !== 'Unassigned' ? `SEMESTER ${semKey} — SUBJECT-WISE PASS RATE & STATISTICS` : 'UNASSIGNED SEMESTER — SUBJECT-WISE STATISTICS')
+      : 'SUBJECT-WISE PASS RATE & STATISTICS';
+    
+    doc.text(semTitle, 15, currentY);
+
+    if (subjectStatsList.length > 0) {
+      autoTable(doc, {
+        startY: currentY + 4,
+        margin: { left: 15, right: 15 },
+        head: [['Subject Code', 'Subject Name', 'Faculty Name', 'Enrolled', 'Passed', 'Failed', 'Pass Rate %']],
+        body: subjectStatsList.map((stat) => [
+          stat.subjectCode || '-',
+          stat.isNonCredit ? `${stat.subjectName} * (Non-Credit)` : stat.subjectName,
+          stat.facultyName || '-',
+          stat.totalStudents,
+          stat.totalPass,
+          stat.totalFail,
+          `${stat.passPercentage}%`,
+        ]),
+        theme: 'striped',
+        headStyles: {
+          fillColor: [30, 41, 59], // Slate 800
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 8.5,
+        },
+        styles: {
+          fontSize: 8.5,
+          cellPadding: 2.5,
+          valign: 'middle',
+        },
+        columnStyles: {
+          0: { cellWidth: 26 },
+          1: { cellWidth: 62 },
+          2: { cellWidth: 32, fontStyle: 'bold', textColor: [30, 41, 59] },
+          3: { cellWidth: 14, halign: 'center' },
+          4: { cellWidth: 14, halign: 'center' },
+          5: { cellWidth: 14, halign: 'center' },
+          6: { cellWidth: 18, halign: 'center', fontStyle: 'bold', textColor: [5, 150, 105] },
+        },
+        didParseCell: (data) => {
+          if (data.section === 'body') {
+            const stat = subjectStatsList[data.row.index];
+            if (stat?.isNonCredit) {
+              data.cell.styles.fillColor = [241, 245, 249]; // Soft light grey tint for non-credit subject row
+            }
+          }
+        },
       });
+    } else {
+      doc.setFont('Helvetica', 'italic');
+      doc.setFontSize(8.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text('No subject-wise statistics data available.', 15, currentY + 7);
     }
   });
-
-  const subjectStatsList = Array.from(statsMap.values()).map((stat) => {
-    const passPct = stat.totalStudents > 0 ? (stat.totalPass / stat.totalStudents) * 100 : 0;
-    return {
-      ...stat,
-      passPercentage: Math.round(passPct * 10) / 10,
-    };
-  });
-
-  const statsStartY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 10 : 110;
-  
-  doc.setFont('Helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(15, 23, 42);
-  doc.text('SUBJECT-WISE PASS RATE & STATISTICS', 15, statsStartY);
-
-  if (subjectStatsList.length > 0) {
-    autoTable(doc, {
-      startY: statsStartY + 4,
-      margin: { left: 15, right: 15 },
-      head: [['Subject Code', 'Subject Name', 'Faculty Name', 'Enrolled', 'Passed', 'Failed', 'Pass Rate %']],
-      body: subjectStatsList.map((stat) => [
-        stat.subjectCode || '-',
-        stat.isNonCredit ? `${stat.subjectName} * (Non-Credit)` : stat.subjectName,
-        stat.facultyName || '-',
-        stat.totalStudents,
-        stat.totalPass,
-        stat.totalFail,
-        `${stat.passPercentage}%`,
-      ]),
-      theme: 'striped',
-      headStyles: {
-        fillColor: [30, 41, 59], // Slate 800
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-        fontSize: 8.5,
-      },
-      styles: {
-        fontSize: 8.5,
-        cellPadding: 2.5,
-        valign: 'middle',
-      },
-      columnStyles: {
-        0: { cellWidth: 26 },
-        1: { cellWidth: 62 },
-        2: { cellWidth: 32, fontStyle: 'bold', textColor: [30, 41, 59] },
-        3: { cellWidth: 14, halign: 'center' },
-        4: { cellWidth: 14, halign: 'center' },
-        5: { cellWidth: 14, halign: 'center' },
-        6: { cellWidth: 18, halign: 'center', fontStyle: 'bold', textColor: [5, 150, 105] },
-      },
-      didParseCell: (data) => {
-        if (data.section === 'body') {
-          const stat = subjectStatsList[data.row.index];
-          if (stat?.isNonCredit) {
-            data.cell.styles.fillColor = [241, 245, 249]; // Soft light grey tint for non-credit subject row
-          }
-        }
-      },
-    });
-  } else {
-    doc.setFont('Helvetica', 'italic');
-    doc.setFontSize(8.5);
-    doc.setTextColor(100, 116, 139);
-    doc.text('No subject-wise statistics data available.', 15, statsStartY + 9);
-  }
 
   // --- COMPARATIVE SEMESTER PERFORMANCE STATISTICS ---
   const semStatsMap = new Map<string, {
@@ -443,7 +489,11 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
   }).sort((a, b) => a.semester.localeCompare(b.semester, undefined, { numeric: true }));
 
   if (semStatsList.length > 0) {
-    const semStartY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 8 : statsStartY + 20;
+    let semStartY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 10 : 120;
+    if (semStartY > 235) {
+      doc.addPage();
+      semStartY = 20;
+    }
     
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(10);
@@ -607,8 +657,8 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
     }
   }
   const deptPart = departmentShortName || 'DEPT';
-  const semPart = semesterNumber || '0';
-  const filename = `SMVCER__${deptPart}_${semPart}_RESULT_Analysis_Summary.pdf`;
+  const semPart = uniqueSemesters.length > 0 ? uniqueSemesters.join('_') : 'ALL';
+  const filename = `SMVCER_${deptPart}_Sem_${semPart}_RESULT_Analysis_Summary.pdf`;
   doc.save(filename);
 }
 
@@ -707,204 +757,155 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
   doc.setFontSize(8);
   doc.setTextColor(71, 85, 105); // Slate 600
 
-  // Find semester number from records
-  let semesterNumber = '';
-  for (const rec of records) {
-    if (rec.semester) {
-      semesterNumber = String(rec.semester).trim();
-      break;
+  // Group records by semester
+  const semesterGroupsMap = new Map<string, StudentRecord[]>();
+  records.forEach((rec) => {
+    const sem = rec.semester ? String(rec.semester).replace(/^sem\s*/i, '').trim() : 'Unassigned';
+    if (!semesterGroupsMap.has(sem)) {
+      semesterGroupsMap.set(sem, []);
     }
+    semesterGroupsMap.get(sem)!.push(rec);
+  });
+
+  const sortedSemKeys = Array.from(semesterGroupsMap.keys()).sort((a, b) => {
+    if (a === 'Unassigned') return 1;
+    if (b === 'Unassigned') return -1;
+    return a.localeCompare(b, undefined, { numeric: true });
+  });
+
+  const uniqueSemesters = sortedSemKeys.filter((s) => s !== 'Unassigned');
+
+  let semesterDisplay = '';
+  if (uniqueSemesters.length === 1) {
+    semesterDisplay = uniqueSemesters[0];
+  } else if (uniqueSemesters.length > 1) {
+    semesterDisplay = uniqueSemesters.join(', ');
   }
 
-  const semSuffix = semesterNumber ? `   •   Sem : ${semesterNumber}` : '';
+  const semSuffix = semesterDisplay ? `   •   Sem : ${semesterDisplay}` : '';
   doc.text(`Result Analysis${semSuffix}   •   Total Enrolled: ${records.length}   |   Passed: ${totalPass}   |   Pass Percentage: ${passPercentage}%`, 18, headerStartY + 27.5);
 
-  // Find all unique subjects in insertion order (same as Excel sheet)
-  const uniqueSubjectsMap = new Map<string, { code: string; name: string; isNonCredit: boolean }>();
-
+  // Global subject list for footer legends
+  const globalSubjectsMap = new Map<string, { code: string; name: string; isNonCredit: boolean }>();
   records.forEach((student) => {
     student.subjects?.forEach((sub) => {
       const code = (sub.subjectCode || '').trim();
       const name = (sub.subjectName || '').trim();
       if (!code && !name) return;
-
       const key = code ? code.toUpperCase() : name.toLowerCase();
-      if (!uniqueSubjectsMap.has(key)) {
-        uniqueSubjectsMap.set(key, { code, name, isNonCredit: !!sub.isNonCredit });
+      if (!globalSubjectsMap.has(key)) {
+        globalSubjectsMap.set(key, { code, name, isNonCredit: !!sub.isNonCredit });
       } else if (sub.isNonCredit) {
-        const existing = uniqueSubjectsMap.get(key)!;
-        existing.isNonCredit = true;
+        globalSubjectsMap.get(key)!.isNonCredit = true;
       }
     });
   });
+  const globalSubjectsList = Array.from(globalSubjectsMap.values());
 
-  const uniqueSubjectsList = Array.from(uniqueSubjectsMap.entries()).map(([key, value]) => ({
-    key,
-    code: value.code,
-    name: value.name,
-    isNonCredit: value.isNonCredit,
-  }));
+  let currentY = headerStartY + 33;
 
-  const subjectHeaders = uniqueSubjectsList.map(sub => {
-    const raw = sub.code || (sub.name.length > 15 ? sub.name.substring(0, 12) + '..' : sub.name);
-    return sub.isNonCredit ? `${raw}*` : raw;
-  });
+  // --- SEMESTER-WISE SECTIONS ---
+  sortedSemKeys.forEach((semKey) => {
+    const semRecords = semesterGroupsMap.get(semKey) || [];
+    if (semRecords.length === 0) return;
 
-  const headers = [
-    'S.No.',
-    'USN',
-    'Student Name',
-    ...subjectHeaders,
-    'Total Marks',
-    'Status'
-  ];
+    const semPassCount = semRecords.filter((r) => isStudentPass(r)).length;
+    const semPassPct = semRecords.length > 0 ? Math.round((semPassCount / semRecords.length) * 1000) / 10 : 0;
 
-  // Prepare student list
-  const sortedRecords = [...records].sort((a, b) => {
-    const usnA = (a.usn || '').trim().toUpperCase();
-    const usnB = (b.usn || '').trim().toUpperCase();
-    return usnA.localeCompare(usnB, undefined, { numeric: true, sensitivity: 'base' });
-  });
-
-  const rowData = sortedRecords.map((rec, idx) => {
-    const totalInfo = getStudentTotalMarks(rec);
-    const statusVal = getEffectiveStatus(rec);
-    
-    const studentRow = [
-      idx + 1,
-      rec.usn || '-',
-      rec.name || '-',
-    ];
-    
-    // Now add subject marks for each unique subject column
-    uniqueSubjectsList.forEach((uniqueSub) => {
-      const studentSub = rec.subjects?.find((s) => {
-        const sCode = (s.subjectCode || '').trim().toUpperCase();
-        const sName = (s.subjectName || '').trim().toUpperCase();
-        return (uniqueSub.code && sCode === uniqueSub.code.toUpperCase()) || sName === uniqueSub.name.toUpperCase();
-      });
-      
-      // Show only total marks
-      studentRow.push(studentSub ? (studentSub.totalMarks || '-') : '-');
-    });
-    
-    studentRow.push(totalInfo.display);
-    studentRow.push(statusVal);
-    
-    return studentRow;
-  });
-
-  autoTable(doc, {
-    startY: headerStartY + 33,
-    margin: { left: 15, right: 15, bottom: 25 },
-    head: [headers],
-    body: rowData,
-    theme: 'grid',
-    headStyles: {
-      fillColor: [15, 23, 42], // Deep Slate 900
-      textColor: [255, 255, 255],
-      fontStyle: 'bold',
-      fontSize: 7.5,
-    },
-    styles: {
-      fontSize: 7.5,
-      cellPadding: 1.5,
-      valign: 'middle',
-    },
-    columnStyles: {
-      0: { cellWidth: 10, halign: 'center' }, // S.No.
-      1: { cellWidth: 26 }, // USN
-      2: { cellWidth: 46 }, // Student Name
-    },
-    didParseCell: (data) => {
-      if (data.section === 'body') {
-        // Last column (Status)
-        if (data.column.index === headers.length - 1) {
-          const val = String(data.cell.raw || '').toUpperCase().trim();
-          if (val === 'PASS') {
-            data.cell.styles.textColor = [5, 122, 85];
-            data.cell.styles.fillColor = [236, 253, 245];
-          } else if (val === 'FAIL') {
-            data.cell.styles.textColor = [185, 28, 28];
-            data.cell.styles.fillColor = [254, 242, 242];
-          }
-        }
-        // Second to last column (Total Marks)
-        if (data.column.index === headers.length - 2) {
-          data.cell.styles.fontStyle = 'bold';
-          data.cell.styles.halign = 'center';
-        }
-        // Subject columns (indices 3 to headers.length - 3)
-        if (data.column.index >= 3 && data.column.index <= headers.length - 3) {
-          data.cell.styles.halign = 'center';
-          const subIndex = data.column.index - 3;
-          if (uniqueSubjectsList[subIndex]?.isNonCredit) {
-            data.cell.styles.fillColor = [241, 245, 249]; // Soft light grey tint for non-credit column
-            data.cell.styles.textColor = [51, 65, 85]; // Slate 700
-          }
-        }
-      }
-      if (data.section === 'head') {
-        if (data.column.index >= 3 && data.column.index <= headers.length - 3) {
-          const subIndex = data.column.index - 3;
-          if (uniqueSubjectsList[subIndex]?.isNonCredit) {
-            data.cell.styles.fillColor = [51, 65, 85]; // Distinct grey header for non-credit column
-          }
-        }
-      }
-    },
-  });
-
-  // --- SECTION: TOP PERFORMERS ---
-  const topStudents = [...records]
-    .map((student) => {
-      const totalInfo = getStudentTotalMarks(student);
-      const statusVal = getEffectiveStatus(student);
-      return {
-        student,
-        sum: totalInfo.sum,
-        display: totalInfo.display,
-        hasValid: totalInfo.hasValid,
-        statusVal,
-      };
-    })
-    .filter((item) => item.hasValid && isStudentPass(item.student))
-    .sort((a, b) => b.sum - a.sum)
-    .slice(0, 3);
-
-  if (topStudents.length > 0) {
-    let finalY = (doc as any).lastAutoTable?.finalY || (headerStartY + 33);
-    
-    // Check if we need a page break for Top Performers section
-    if (finalY > 155) {
+    if (currentY > 150) {
       doc.addPage();
-      finalY = 20;
-    } else {
-      finalY += 8;
+      currentY = 20;
     }
 
     doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(30, 41, 59); // Slate 800
-    doc.text('TOP ACADEMIC PERFORMERS', 15, finalY);
+    doc.setFontSize(10.5);
+    doc.setTextColor(15, 23, 42); // Slate 900
+    const semSectionTitle = sortedSemKeys.length > 1
+      ? (semKey !== 'Unassigned'
+          ? `SEMESTER ${semKey} — STUDENT MARKS REGISTER (Enrolled: ${semRecords.length} | Passed: ${semPassCount} | Pass Rate: ${semPassPct}%)`
+          : 'UNASSIGNED SEMESTER — STUDENT MARKS REGISTER')
+      : 'DETAILED STUDENT MARKS REGISTER';
+    doc.text(semSectionTitle, 15, currentY);
 
-    const topPerformersRows = topStudents.map((item, index) => [
-      `Rank #${index + 1}`,
-      item.student.usn || '-',
-      item.student.name || '-',
-      item.student.semester || '-',
-      item.statusVal,
-      item.display
-    ]);
+    // 1) SEMESTER SUBJECT MARKS TABLE
+    const semSubjectsMap = new Map<string, { code: string; name: string; isNonCredit: boolean }>();
+    semRecords.forEach((student) => {
+      student.subjects?.forEach((sub) => {
+        const code = (sub.subjectCode || '').trim();
+        const name = (sub.subjectName || '').trim();
+        if (!code && !name) return;
+
+        const key = code ? code.toUpperCase() : name.toLowerCase();
+        if (!semSubjectsMap.has(key)) {
+          semSubjectsMap.set(key, { code, name, isNonCredit: !!sub.isNonCredit });
+        } else if (sub.isNonCredit) {
+          const existing = semSubjectsMap.get(key)!;
+          existing.isNonCredit = true;
+        }
+      });
+    });
+
+    const semSubjectsList = Array.from(semSubjectsMap.entries()).map(([key, value]) => ({
+      key,
+      code: value.code,
+      name: value.name,
+      isNonCredit: value.isNonCredit,
+    }));
+
+    const subjectHeaders = semSubjectsList.map((sub) => {
+      const raw = sub.code || (sub.name.length > 15 ? sub.name.substring(0, 12) + '..' : sub.name);
+      return sub.isNonCredit ? `${raw}*` : raw;
+    });
+
+    const headers = [
+      'S.No.',
+      'USN',
+      'Student Name',
+      ...subjectHeaders,
+      'Total Marks',
+      'Status',
+    ];
+
+    const sortedSemRecords = [...semRecords].sort((a, b) => {
+      const usnA = (a.usn || '').trim().toUpperCase();
+      const usnB = (b.usn || '').trim().toUpperCase();
+      return usnA.localeCompare(usnB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    const rowData = sortedSemRecords.map((rec, idx) => {
+      const totalInfo = getStudentTotalMarks(rec);
+      const statusVal = getEffectiveStatus(rec);
+
+      const studentRow = [
+        idx + 1,
+        rec.usn || '-',
+        rec.name || '-',
+      ];
+
+      semSubjectsList.forEach((uniqueSub) => {
+        const studentSub = rec.subjects?.find((s) => {
+          const sCode = (s.subjectCode || '').trim().toUpperCase();
+          const sName = (s.subjectName || '').trim().toUpperCase();
+          return (uniqueSub.code && sCode === uniqueSub.code.toUpperCase()) || sName === uniqueSub.name.toUpperCase();
+        });
+
+        studentRow.push(studentSub ? (studentSub.totalMarks || '-') : '-');
+      });
+
+      studentRow.push(totalInfo.display);
+      studentRow.push(statusVal);
+
+      return studentRow;
+    });
 
     autoTable(doc, {
-      startY: finalY + 3,
+      startY: currentY + 3,
       margin: { left: 15, right: 15, bottom: 25 },
-      head: [['Rank', 'USN', 'Student Name', 'Semester', 'Status', 'Total Marks']],
-      body: topPerformersRows,
+      head: [headers],
+      body: rowData,
       theme: 'grid',
       headStyles: {
-        fillColor: [30, 41, 59], // Slate 800
+        fillColor: [15, 23, 42], // Deep Slate 900
         textColor: [255, 255, 255],
         fontStyle: 'bold',
         fontSize: 7.5,
@@ -915,23 +916,13 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
         valign: 'middle',
       },
       columnStyles: {
-        0: { cellWidth: 25, fontStyle: 'bold', halign: 'center' },
-        1: { cellWidth: 35 },
-        2: { cellWidth: 80 },
-        3: { cellWidth: 30, halign: 'center' },
-        4: { cellWidth: 30, halign: 'center' },
-        5: { cellWidth: 35, fontStyle: 'bold', halign: 'center' },
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 26 },
+        2: { cellWidth: 46 },
       },
       didParseCell: (data) => {
         if (data.section === 'body') {
-          // Rank badge colors
-          if (data.column.index === 0) {
-            if (data.row.index === 0) data.cell.styles.textColor = [180, 83, 9];
-            else if (data.row.index === 1) data.cell.styles.textColor = [71, 85, 105];
-            else if (data.row.index === 2) data.cell.styles.textColor = [146, 64, 14];
-          }
-          // Status column
-          if (data.column.index === 4) {
+          if (data.column.index === headers.length - 1) {
             const val = String(data.cell.raw || '').toUpperCase().trim();
             if (val === 'PASS') {
               data.cell.styles.textColor = [5, 122, 85];
@@ -941,122 +932,238 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
               data.cell.styles.fillColor = [254, 242, 242];
             }
           }
+          if (data.column.index === headers.length - 2) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.halign = 'center';
+          }
+          if (data.column.index >= 3 && data.column.index <= headers.length - 3) {
+            data.cell.styles.halign = 'center';
+            const subIndex = data.column.index - 3;
+            if (semSubjectsList[subIndex]?.isNonCredit) {
+              data.cell.styles.fillColor = [241, 245, 249];
+              data.cell.styles.textColor = [51, 65, 85];
+            }
+          }
         }
-      }
-    });
-  }
-
-  // --- SECTION: SUBJECT WISE STATISTICS ---
-  const statsMap = new Map<string, {
-    subjectCode: string;
-    subjectName: string;
-    totalStudents: number;
-    totalPass: number;
-    totalFail: number;
-  }>();
-
-  records.forEach((student) => {
-    if (student.subjects && Array.isArray(student.subjects)) {
-      student.subjects.forEach((sub) => {
-        if (!sub || !sub.subjectName) return;
-        const code = (sub.subjectCode || '').trim();
-        const name = (sub.subjectName || '').trim();
-        const key = code ? `${code.toUpperCase()}::${name.toUpperCase()}` : name.toUpperCase();
-
-        const isPass = isSubjectPass(sub);
-
-        if (!statsMap.has(key)) {
-          statsMap.set(key, {
-            subjectCode: code,
-            subjectName: name,
-            totalStudents: 0,
-            totalPass: 0,
-            totalFail: 0,
-          });
-        }
-
-        const current = statsMap.get(key)!;
-        current.totalStudents += 1;
-        if (isPass) {
-          current.totalPass += 1;
-        } else {
-          current.totalFail += 1;
-        }
-      });
-    }
-  });
-
-  const subjectStatsList = Array.from(statsMap.values()).map((stat) => {
-    const passPct = stat.totalStudents > 0 ? (stat.totalPass / stat.totalStudents) * 100 : 0;
-    return {
-      ...stat,
-      passPercentage: Math.round(passPct * 10) / 10,
-    };
-  });
-
-  let statsY = (doc as any).lastAutoTable?.finalY || (headerStartY + 33);
-  
-  if (statsY > 145) {
-    doc.addPage();
-    statsY = 20;
-  } else {
-    statsY += 8;
-  }
-
-  doc.setFont('Helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(30, 41, 59); // Slate 800
-  doc.text('SUBJECT-WISE PASS RATE & STATISTICS', 15, statsY);
-
-  if (subjectStatsList.length > 0) {
-    const subjectStatsRows = subjectStatsList.map((stat, idx) => [
-      idx + 1,
-      stat.subjectCode || '-',
-      stat.subjectName || '-',
-      stat.totalStudents,
-      stat.totalPass,
-      stat.totalFail,
-      `${stat.passPercentage}%`,
-    ]);
-
-    autoTable(doc, {
-      startY: statsY + 3,
-      margin: { left: 15, right: 15, bottom: 25 },
-      head: [['S.No.', 'Subject Code', 'Subject Name', 'Appeared', 'Passed', 'Failed', 'Pass Rate']],
-      body: subjectStatsRows,
-      theme: 'grid',
-      headStyles: {
-        fillColor: [15, 23, 42], // Slate 900
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-        fontSize: 7.5,
-      },
-      styles: {
-        fontSize: 7.5,
-        cellPadding: 1.5,
-        valign: 'middle',
-      },
-      columnStyles: {
-        0: { cellWidth: 15, halign: 'center' },
-        1: { cellWidth: 35, fontStyle: 'bold' },
-        2: { cellWidth: 105 },
-        3: { cellWidth: 25, halign: 'center' },
-        4: { cellWidth: 25, halign: 'center', textColor: [5, 122, 85] },
-        5: { cellWidth: 25, halign: 'center', textColor: [185, 28, 28] },
-        6: { cellWidth: 25, halign: 'center', fontStyle: 'bold' },
-      },
-      didParseCell: (data) => {
-        if (data.section === 'body' && data.column.index === 6) {
-          const pct = parseFloat(String(data.cell.raw).replace('%', ''));
-          if (pct >= 75) {
-            data.cell.styles.textColor = [5, 122, 85];
-          } else if (pct < 50) {
-            data.cell.styles.textColor = [185, 28, 28];
+        if (data.section === 'head') {
+          if (data.column.index >= 3 && data.column.index <= headers.length - 3) {
+            const subIndex = data.column.index - 3;
+            if (semSubjectsList[subIndex]?.isNonCredit) {
+              data.cell.styles.fillColor = [51, 65, 85];
+            }
           }
         }
       },
     });
-  }
+
+    let afterTableY = (doc as any).lastAutoTable?.finalY || (currentY + 10);
+
+    // 2) SEMESTER TOP ACADEMIC PERFORMERS
+    const topStudents = sortedSemRecords
+      .map((student) => {
+        const totalInfo = getStudentTotalMarks(student);
+        const statusVal = getEffectiveStatus(student);
+        return {
+          student,
+          sum: totalInfo.sum,
+          display: totalInfo.display,
+          hasValid: totalInfo.hasValid,
+          statusVal,
+        };
+      })
+      .filter((item) => item.hasValid && isStudentPass(item.student))
+      .sort((a, b) => b.sum - a.sum)
+      .slice(0, 3);
+
+    if (topStudents.length > 0) {
+      if (afterTableY > 155) {
+        doc.addPage();
+        afterTableY = 20;
+      } else {
+        afterTableY += 8;
+      }
+
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(9.5);
+      doc.setTextColor(30, 41, 59);
+      const topTitle = sortedSemKeys.length > 1
+        ? (semKey !== 'Unassigned' ? `SEMESTER ${semKey} — TOP ACADEMIC PERFORMERS` : 'TOP ACADEMIC PERFORMERS')
+        : 'TOP ACADEMIC PERFORMERS';
+      doc.text(topTitle, 15, afterTableY);
+
+      const topPerformersRows = topStudents.map((item, index) => [
+        `Rank #${index + 1}`,
+        item.student.usn || '-',
+        item.student.name || '-',
+        item.student.semester || semKey,
+        item.statusVal,
+        item.display,
+      ]);
+
+      autoTable(doc, {
+        startY: afterTableY + 3,
+        margin: { left: 15, right: 15, bottom: 25 },
+        head: [['Rank', 'USN', 'Student Name', 'Semester', 'Status', 'Total Marks']],
+        body: topPerformersRows,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [30, 41, 59],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 7.5,
+        },
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 1.5,
+          valign: 'middle',
+        },
+        columnStyles: {
+          0: { cellWidth: 25, fontStyle: 'bold', halign: 'center' },
+          1: { cellWidth: 35 },
+          2: { cellWidth: 80 },
+          3: { cellWidth: 30, halign: 'center' },
+          4: { cellWidth: 30, halign: 'center' },
+          5: { cellWidth: 35, fontStyle: 'bold', halign: 'center' },
+        },
+        didParseCell: (data) => {
+          if (data.section === 'body') {
+            if (data.column.index === 0) {
+              if (data.row.index === 0) data.cell.styles.textColor = [180, 83, 9];
+              else if (data.row.index === 1) data.cell.styles.textColor = [71, 85, 105];
+              else if (data.row.index === 2) data.cell.styles.textColor = [146, 64, 14];
+            }
+            if (data.column.index === 4) {
+              const val = String(data.cell.raw || '').toUpperCase().trim();
+              if (val === 'PASS') {
+                data.cell.styles.textColor = [5, 122, 85];
+                data.cell.styles.fillColor = [236, 253, 245];
+              } else if (val === 'FAIL') {
+                data.cell.styles.textColor = [185, 28, 28];
+                data.cell.styles.fillColor = [254, 242, 242];
+              }
+            }
+          }
+        },
+      });
+      afterTableY = (doc as any).lastAutoTable?.finalY || afterTableY;
+    }
+
+    // 3) SEMESTER SUBJECT-WISE PASS RATE & STATISTICS
+    const statsMap = new Map<string, {
+      subjectCode: string;
+      subjectName: string;
+      totalStudents: number;
+      totalPass: number;
+      totalFail: number;
+    }>();
+
+    semRecords.forEach((student) => {
+      if (student.subjects && Array.isArray(student.subjects)) {
+        student.subjects.forEach((sub) => {
+          if (!sub || !sub.subjectName) return;
+          const code = (sub.subjectCode || '').trim();
+          const name = (sub.subjectName || '').trim();
+          const key = code ? `${code.toUpperCase()}::${name.toUpperCase()}` : name.toUpperCase();
+
+          const isPass = isSubjectPass(sub);
+
+          if (!statsMap.has(key)) {
+            statsMap.set(key, {
+              subjectCode: code,
+              subjectName: name,
+              totalStudents: 0,
+              totalPass: 0,
+              totalFail: 0,
+            });
+          }
+
+          const current = statsMap.get(key)!;
+          current.totalStudents += 1;
+          if (isPass) {
+            current.totalPass += 1;
+          } else {
+            current.totalFail += 1;
+          }
+        });
+      }
+    });
+
+    const subjectStatsList = Array.from(statsMap.values()).map((stat) => {
+      const passPct = stat.totalStudents > 0 ? (stat.totalPass / stat.totalStudents) * 100 : 0;
+      return {
+        ...stat,
+        passPercentage: Math.round(passPct * 10) / 10,
+      };
+    });
+
+    if (afterTableY > 145) {
+      doc.addPage();
+      afterTableY = 20;
+    } else {
+      afterTableY += 8;
+    }
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(30, 41, 59);
+    const subStatsTitle = sortedSemKeys.length > 1
+      ? (semKey !== 'Unassigned' ? `SEMESTER ${semKey} — SUBJECT-WISE PASS RATE & STATISTICS` : 'SUBJECT-WISE PASS RATE & STATISTICS')
+      : 'SUBJECT-WISE PASS RATE & STATISTICS';
+    doc.text(subStatsTitle, 15, afterTableY);
+
+    if (subjectStatsList.length > 0) {
+      const subjectStatsRows = subjectStatsList.map((stat, idx) => [
+        idx + 1,
+        stat.subjectCode || '-',
+        stat.subjectName || '-',
+        stat.totalStudents,
+        stat.totalPass,
+        stat.totalFail,
+        `${stat.passPercentage}%`,
+      ]);
+
+      autoTable(doc, {
+        startY: afterTableY + 3,
+        margin: { left: 15, right: 15, bottom: 25 },
+        head: [['S.No.', 'Subject Code', 'Subject Name', 'Appeared', 'Passed', 'Failed', 'Pass Rate']],
+        body: subjectStatsRows,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [15, 23, 42],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 7.5,
+        },
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 1.5,
+          valign: 'middle',
+        },
+        columnStyles: {
+          0: { cellWidth: 15, halign: 'center' },
+          1: { cellWidth: 35, fontStyle: 'bold' },
+          2: { cellWidth: 105 },
+          3: { cellWidth: 25, halign: 'center' },
+          4: { cellWidth: 25, halign: 'center', textColor: [5, 122, 85] },
+          5: { cellWidth: 25, halign: 'center', textColor: [185, 28, 28] },
+          6: { cellWidth: 25, halign: 'center', fontStyle: 'bold' },
+        },
+        didParseCell: (data) => {
+          if (data.section === 'body' && data.column.index === 6) {
+            const pct = parseFloat(String(data.cell.raw).replace('%', ''));
+            if (pct >= 75) {
+              data.cell.styles.textColor = [5, 122, 85];
+            } else if (pct < 50) {
+              data.cell.styles.textColor = [185, 28, 28];
+            }
+          }
+        },
+      });
+    }
+
+    currentY = (doc as any).lastAutoTable?.finalY || (afterTableY + 10);
+    currentY += 12; // Spacing before next semester block
+  });
 
   // --- SIGNATURE SECTION ---
   let finalY = (doc as any).lastAutoTable?.finalY || 140;
@@ -1080,8 +1187,8 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
   const totalPages = (doc as any).internal.getNumberOfPages();
   const pageHeight = doc.internal.pageSize.height; // 210 for landscape
   
-  const hasNC = uniqueSubjectsList.some(sub => sub.isNonCredit);
-  const legends = uniqueSubjectsList
+  const hasNC = globalSubjectsList.some(sub => sub.isNonCredit);
+  const legends = globalSubjectsList
     .filter(sub => sub.code)
     .map(sub => sub.isNonCredit ? `${sub.code}* (Non-Credit): ${sub.name}` : `${sub.code}: ${sub.name}`)
     .join('  |  ');
@@ -1119,7 +1226,7 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
     }
   }
   const deptPart = departmentShortName || 'DEPT';
-  const semPart = semesterNumber || '0';
-  const filename = `SMVCER_${deptPart}_${semPart}_detailed_result_analysis.pdf`;
+  const semPart = uniqueSemesters.length > 0 ? uniqueSemesters.join('_') : 'ALL';
+  const filename = `SMVCER_${deptPart}_Sem_${semPart}_detailed_result_analysis.pdf`;
   doc.save(filename);
 }
