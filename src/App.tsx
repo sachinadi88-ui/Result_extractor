@@ -63,6 +63,37 @@ export default function App() {
   });
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState<boolean>(false);
 
+  // Force & Lock Portrait Orientation for PWA / Mobile Web
+  useEffect(() => {
+    const lockPortrait = async () => {
+      try {
+        if (window.screen && window.screen.orientation && typeof (window.screen.orientation as any).lock === 'function') {
+          await (window.screen.orientation as any).lock('portrait-primary').catch(() => {
+            return (window.screen.orientation as any).lock('portrait');
+          });
+        }
+      } catch {
+        // Ignore if screen orientation lock is unsupported or user gesture required
+      }
+    };
+
+    lockPortrait();
+
+    const handleInteraction = () => {
+      lockPortrait();
+    };
+
+    window.addEventListener('orientationchange', lockPortrait);
+    window.addEventListener('touchstart', handleInteraction, { once: true });
+    window.addEventListener('click', handleInteraction, { once: true });
+
+    return () => {
+      window.removeEventListener('orientationchange', lockPortrait);
+      window.removeEventListener('touchstart', handleInteraction);
+      window.removeEventListener('click', handleInteraction);
+    };
+  }, []);
+
   // Sync session & load user records ONLY from Firebase Firestore when currentUser changes
   useEffect(() => {
     if (currentUser) {
