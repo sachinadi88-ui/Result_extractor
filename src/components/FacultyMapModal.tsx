@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StudentRecord } from '../types';
-import { Users, Lock, Unlock, Save, X, BookOpen, CheckCircle2 } from 'lucide-react';
+import { Users, Lock, Unlock, Save, X, BookOpen } from 'lucide-react';
 
 interface FacultyMapModalProps {
   isOpen: boolean;
@@ -16,6 +16,7 @@ interface SubjectFacultyItem {
   code: string;
   name: string;
   facultyName: string;
+  credits: string;
   isNonCredit?: boolean;
 }
 
@@ -28,9 +29,10 @@ export const FacultyMapModal: React.FC<FacultyMapModalProps> = ({
   onRequestUnlock,
 }) => {
   const [facultyMap, setFacultyMap] = useState<{ [key: string]: string }>({});
+  const [creditsMap, setCreditsMap] = useState<{ [key: string]: string }>({});
   const [isSaving, setIsSaving] = useState(false);
 
-  // Extract unique subjects and initialize faculty map from current records
+  // Extract unique subjects and initialize faculty name & credits map from current records
   const getUniqueSubjects = (): SubjectFacultyItem[] => {
     const subjectMap = new Map<string, SubjectFacultyItem>();
 
@@ -48,12 +50,16 @@ export const FacultyMapModal: React.FC<FacultyMapModalProps> = ({
             code,
             name,
             facultyName: s.facultyName || facultyMap[key] || '',
+            credits: s.credits !== undefined && s.credits !== null ? String(s.credits) : creditsMap[key] || '',
             isNonCredit: !!s.isNonCredit,
           });
         } else {
           const existing = subjectMap.get(key)!;
           if (s.facultyName && !existing.facultyName) {
             existing.facultyName = s.facultyName;
+          }
+          if (s.credits !== undefined && s.credits !== null && String(s.credits).trim() !== '' && !existing.credits) {
+            existing.credits = String(s.credits);
           }
           if (s.isNonCredit) {
             existing.isNonCredit = true;
@@ -67,18 +73,21 @@ export const FacultyMapModal: React.FC<FacultyMapModalProps> = ({
 
   const uniqueSubjects = getUniqueSubjects();
 
-  // Load faculty names from records / local state whenever modal opens or records change
+  // Load faculty names and credits from records / local storage state whenever modal opens or records change
   useEffect(() => {
     if (isOpen) {
-      const initialMap: { [key: string]: string } = {};
-      
-      // Load stored local mapping if available
-      let localSaved: { [key: string]: string } = {};
+      const initialFacultyMap: { [key: string]: string } = {};
+      const initialCreditsMap: { [key: string]: string } = {};
+
+      let localSavedFaculty: { [key: string]: string } = {};
+      let localSavedCredits: { [key: string]: string } = {};
       try {
-        const stored = localStorage.getItem('smvcer_faculty_mapping');
-        if (stored) {
-          localSaved = JSON.parse(stored);
-        }
+        const storedF = localStorage.getItem('smvcer_faculty_mapping');
+        if (storedF) localSavedFaculty = JSON.parse(storedF);
+      } catch (e) {}
+      try {
+        const storedC = localStorage.getItem('smvcer_credits_mapping');
+        if (storedC) localSavedCredits = JSON.parse(storedC);
       } catch (e) {}
 
       records.forEach((rec) => {
@@ -87,16 +96,23 @@ export const FacultyMapModal: React.FC<FacultyMapModalProps> = ({
           const name = (s.subjectName || '').trim();
           if (!code && !name) return;
           const key = code ? code.toUpperCase() : name.toLowerCase();
-          
+
           if (s.facultyName) {
-            initialMap[key] = s.facultyName;
-          } else if (localSaved[key] && !initialMap[key]) {
-            initialMap[key] = localSaved[key];
+            initialFacultyMap[key] = s.facultyName;
+          } else if (localSavedFaculty[key] && !initialFacultyMap[key]) {
+            initialFacultyMap[key] = localSavedFaculty[key];
+          }
+
+          if (s.credits !== undefined && s.credits !== null && String(s.credits).trim() !== '') {
+            initialCreditsMap[key] = String(s.credits);
+          } else if (localSavedCredits[key] && !initialCreditsMap[key]) {
+            initialCreditsMap[key] = localSavedCredits[key];
           }
         });
       });
 
-      setFacultyMap(initialMap);
+      setFacultyMap(initialFacultyMap);
+      setCreditsMap(initialCreditsMap);
     }
   }, [isOpen, records]);
 
@@ -113,6 +129,17 @@ export const FacultyMapModal: React.FC<FacultyMapModalProps> = ({
     }));
   };
 
+  const handleCreditsChange = (key: string, value: string) => {
+    if (isLocked) {
+      onRequestUnlock();
+      return;
+    }
+    setCreditsMap((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
   const handleSave = async () => {
     if (isLocked) {
       onRequestUnlock();
@@ -121,12 +148,13 @@ export const FacultyMapModal: React.FC<FacultyMapModalProps> = ({
 
     setIsSaving(true);
     try {
-      // Save faculty map to localStorage as backup
+      // Save mappings to localStorage as backup
       try {
         localStorage.setItem('smvcer_faculty_mapping', JSON.stringify(facultyMap));
+        localStorage.setItem('smvcer_credits_mapping', JSON.stringify(creditsMap));
       } catch (e) {}
 
-      // Update all student records' subjects with mapped faculty names
+      // Update all student records' subjects with mapped faculty names and credits
       const updatedRecords: StudentRecord[] = records.map((student) => {
         if (!student.subjects || student.subjects.length === 0) return student;
 
@@ -136,10 +164,12 @@ export const FacultyMapModal: React.FC<FacultyMapModalProps> = ({
           const key = code ? code.toUpperCase() : name.toLowerCase();
 
           const mappedFaculty = facultyMap[key] !== undefined ? facultyMap[key] : (sub.facultyName || '');
+          const mappedCredits = creditsMap[key] !== undefined ? creditsMap[key] : (sub.credits || '');
 
           return {
             ...sub,
             facultyName: mappedFaculty,
+            credits: mappedCredits,
           };
         });
 
@@ -152,7 +182,7 @@ export const FacultyMapModal: React.FC<FacultyMapModalProps> = ({
       await onSaveFacultyMapping(updatedRecords);
       onClose();
     } catch (error) {
-      console.error('Error saving faculty mapping:', error);
+      console.error('Error saving faculty and credits mapping:', error);
     } finally {
       setIsSaving(false);
     }
@@ -160,7 +190,7 @@ export const FacultyMapModal: React.FC<FacultyMapModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
         
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
@@ -169,9 +199,9 @@ export const FacultyMapModal: React.FC<FacultyMapModalProps> = ({
               <Users className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900">Map Faculty to Subjects</h2>
+              <h2 className="text-base font-bold text-slate-900">Map Faculty &amp; Subject Credits</h2>
               <p className="text-xs text-slate-500">
-                Assign faculty names to subjects. Saved mappings persist in database &amp; Portrait PDF reports.
+                Assign faculty names and credits to subjects. Saved mappings persist across database &amp; reports.
               </p>
             </div>
           </div>
@@ -189,12 +219,12 @@ export const FacultyMapModal: React.FC<FacultyMapModalProps> = ({
             <div className="flex items-center space-x-2">
               <Lock className="w-4 h-4 text-amber-600 shrink-0" />
               <span>
-                <strong>System is Locked:</strong> Enter password to unlock and edit faculty names.
+                <strong>System is Locked:</strong> Enter password to unlock and edit faculty &amp; credits.
               </span>
             </div>
             <button
               onClick={onRequestUnlock}
-              className="inline-flex items-center space-x-1 px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition-colors shrink-0 cursor-pointer"
+              className="inline-flex items-center space-x-1 px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition-colors shrink-0 cursor-pointer active:scale-95"
             >
               <Unlock className="w-3.5 h-3.5" />
               <span>Unlock</span>
@@ -208,36 +238,38 @@ export const FacultyMapModal: React.FC<FacultyMapModalProps> = ({
             <div className="text-center py-12 text-slate-400 space-y-2">
               <BookOpen className="w-10 h-10 mx-auto text-slate-300" />
               <p className="text-sm font-medium">No subjects found in uploaded records.</p>
-              <p className="text-xs">Upload student marksheet screenshots first to map faculty.</p>
+              <p className="text-xs">Upload student marksheet screenshots first to map faculty &amp; credits.</p>
             </div>
           ) : (
             <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
               <table className="w-full text-xs text-left">
                 <thead className="bg-slate-900 text-white text-[11px] font-bold uppercase tracking-wider">
                   <tr>
-                    <th className="px-4 py-3 w-1/4 border-r border-slate-800">1st Col: Subject Code</th>
-                    <th className="px-4 py-3 w-2/5 border-r border-slate-800">2nd Col: Subject Name</th>
-                    <th className="px-4 py-3 w-1/3">3rd Col: Faculty Name</th>
+                    <th className="px-3 py-3 w-1/5 border-r border-slate-800">Subject Code</th>
+                    <th className="px-3 py-3 w-2/5 border-r border-slate-800">Subject Name</th>
+                    <th className="px-3 py-3 w-1/4 border-r border-slate-800">Faculty Name</th>
+                    <th className="px-3 py-3 w-1/6">Credits</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
                   {uniqueSubjects.map((sub, idx) => {
                     const currentFaculty = facultyMap[sub.key] !== undefined ? facultyMap[sub.key] : sub.facultyName;
+                    const currentCredits = creditsMap[sub.key] !== undefined ? creditsMap[sub.key] : sub.credits;
                     
                     return (
                       <tr key={sub.key} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                        <td className="px-4 py-3 font-mono font-bold text-slate-800 border-r border-slate-100">
+                        <td className="px-3 py-2.5 font-mono font-bold text-slate-800 border-r border-slate-100">
                           {sub.code || '-'}
                           {sub.isNonCredit && (
-                            <span className="ml-1.5 px-1.5 py-0.5 text-[9px] bg-amber-100 text-amber-900 rounded font-semibold">
+                            <span className="ml-1 px-1.5 py-0.5 text-[9px] bg-amber-100 text-amber-900 rounded font-semibold">
                               Non-Credit
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 font-medium text-slate-900 border-r border-slate-100">
+                        <td className="px-3 py-2.5 font-medium text-slate-900 border-r border-slate-100">
                           {sub.name}
                         </td>
-                        <td className="px-4 py-2">
+                        <td className="px-3 py-2 border-r border-slate-100">
                           <input
                             type="text"
                             disabled={isLocked}
@@ -246,8 +278,25 @@ export const FacultyMapModal: React.FC<FacultyMapModalProps> = ({
                             onClick={() => {
                               if (isLocked) onRequestUnlock();
                             }}
-                            placeholder={isLocked ? "Unlock to enter faculty name..." : "Enter Faculty Name..."}
-                            className={`w-full px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+                            placeholder={isLocked ? "Unlock to edit..." : "Enter Faculty Name..."}
+                            className={`w-full px-2.5 py-1.5 rounded-lg border text-xs transition-colors ${
+                              isLocked
+                                ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-pointer hover:bg-slate-200/70'
+                                : 'bg-white border-slate-300 text-slate-900 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 focus:outline-none'
+                            }`}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            disabled={isLocked}
+                            value={currentCredits}
+                            onChange={(e) => handleCreditsChange(sub.key, e.target.value)}
+                            onClick={() => {
+                              if (isLocked) onRequestUnlock();
+                            }}
+                            placeholder={isLocked ? "-" : "Credits"}
+                            className={`w-full px-2.5 py-1.5 rounded-lg border text-xs text-center font-semibold transition-colors ${
                               isLocked
                                 ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-pointer hover:bg-slate-200/70'
                                 : 'bg-white border-slate-300 text-slate-900 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 focus:outline-none'
@@ -278,7 +327,7 @@ export const FacultyMapModal: React.FC<FacultyMapModalProps> = ({
             <button
               onClick={handleSave}
               disabled={isSaving || uniqueSubjects.length === 0}
-              className={`inline-flex items-center space-x-1.5 px-5 py-2 rounded-xl text-xs font-semibold text-white shadow-xs transition-colors cursor-pointer ${
+              className={`inline-flex items-center space-x-1.5 px-5 py-2 rounded-xl text-xs font-semibold text-white shadow-xs transition-all duration-150 cursor-pointer active:scale-95 ${
                 isLocked
                   ? 'bg-slate-400 hover:bg-slate-500'
                   : 'bg-indigo-600 hover:bg-indigo-700'
@@ -292,7 +341,7 @@ export const FacultyMapModal: React.FC<FacultyMapModalProps> = ({
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  <span>{isLocked ? 'Unlock & Save' : 'Save Faculty Mapping'}</span>
+                  <span>{isLocked ? 'Unlock & Save' : 'Save Mapping'}</span>
                 </>
               )}
             </button>
@@ -303,3 +352,4 @@ export const FacultyMapModal: React.FC<FacultyMapModalProps> = ({
     </div>
   );
 };
+
