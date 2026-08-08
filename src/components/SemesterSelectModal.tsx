@@ -103,12 +103,12 @@ export const SemesterSelectModal: React.FC<SemesterSelectModalProps> = ({
                     key={`modal-sem-${semNum}`}
                     type="button"
                     onClick={() => handleChoose(semNum)}
-                    className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between group ${
+                    className={`p-2.5 rounded-lg border text-left transition-all duration-150 cursor-pointer flex items-center justify-between group active:scale-95 active:shadow-inner ${
                       isSelected
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-300'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-md ring-2 ring-emerald-300'
                         : hasData
-                        ? 'bg-emerald-50/50 hover:bg-emerald-100/70 border-emerald-200 text-slate-800 hover:border-emerald-400 shadow-2xs'
-                        : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:border-slate-300'
+                        ? 'bg-emerald-50/50 hover:bg-emerald-100/70 border-emerald-200 text-slate-800 hover:border-emerald-400 shadow-2xs hover:shadow-md'
+                        : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:border-slate-300 hover:shadow-2xs'
                     }`}
                   >
                     <div className="flex items-center space-x-1.5 min-w-0 pr-1">
@@ -117,10 +117,10 @@ export const SemesterSelectModal: React.FC<SemesterSelectModalProps> = ({
                       </span>
                       {hasData && (
                         <span
-                          className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-md ${
+                          className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-md transition-all ${
                             isSelected
                               ? 'bg-emerald-700 text-white'
-                              : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : 'bg-emerald-100 text-emerald-800 border border-emerald-200 group-hover:bg-emerald-200'
                           }`}
                         >
                           {count}
@@ -128,8 +128,8 @@ export const SemesterSelectModal: React.FC<SemesterSelectModalProps> = ({
                       )}
                     </div>
                     <ArrowRight
-                      className={`w-3.5 h-3.5 shrink-0 transition-transform group-hover:translate-x-0.5 ${
-                        isSelected ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'
+                      className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:translate-x-1 ${
+                        isSelected ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'
                       }`}
                     />
                   </button>
@@ -143,9 +143,9 @@ export const SemesterSelectModal: React.FC<SemesterSelectModalProps> = ({
             <button
               type="button"
               onClick={() => handleChoose('ALL')}
-              className={`w-full p-2.5 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between group ${
+              className={`w-full p-2.5 rounded-lg border text-left transition-all duration-150 cursor-pointer flex items-center justify-between group active:scale-95 active:shadow-inner ${
                 currentSemester === 'ALL'
-                  ? 'bg-slate-900 text-white border-slate-900 shadow-xs ring-2 ring-slate-400'
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-slate-400'
                   : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800 hover:border-slate-300'
               }`}
             >

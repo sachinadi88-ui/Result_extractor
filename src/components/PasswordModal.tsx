@@ -134,7 +134,7 @@ export const PasswordModal: React.FC<PasswordModalProps> = ({
           <button
             type="submit"
             disabled={success}
-            className={`w-full py-2.5 rounded-xl font-semibold text-xs sm:text-sm shadow-sm transition-all duration-200 cursor-pointer text-white ${
+            className={`w-full py-2.5 rounded-xl font-semibold text-xs sm:text-sm shadow-sm transition-all duration-200 cursor-pointer text-white active:scale-[0.98] ${
               success
                 ? 'bg-emerald-600 hover:bg-emerald-700'
                 : 'bg-indigo-600 hover:bg-indigo-700'

@@ -700,7 +700,7 @@ export default function App() {
 
       {/* Floating Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-semibold shadow-xl flex items-center space-x-2 animate-bounce">
+        <div className="fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-xl bg-slate-900/95 backdrop-blur-md border border-slate-700/80 text-white text-xs font-semibold shadow-2xl flex items-center space-x-2 animate-slide-up">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{toastMessage}</span>
         </div>
@@ -708,7 +708,7 @@ export default function App() {
 
       {/* Syncing Toast Notification - Rendered on top of backdrop (z-[60]) */}
       {isSyncingFirebase && (
-        <div className="fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-semibold shadow-xl flex items-center space-x-3 animate-bounce">
+        <div className="fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-xl bg-slate-900/95 backdrop-blur-md border border-slate-700/80 text-white text-xs font-semibold shadow-2xl flex items-center space-x-3 animate-slide-up">
           <div className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping shrink-0" />
           <span className="text-slate-200">Syncing Data- Please Wait</span>
         </div>

@@ -356,24 +356,24 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
           <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-medium">
             <button
               onClick={() => setStatusFilter('ALL')}
-              className={`px-3 py-1 rounded-md transition-colors ${
-                statusFilter === 'ALL' ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
+              className={`px-3 py-1 rounded-md transition-all duration-150 active:scale-95 ${
+                statusFilter === 'ALL' ? 'bg-white text-slate-900 shadow-sm font-semibold scale-[1.02]' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               All
             </button>
             <button
               onClick={() => setStatusFilter('PASS')}
-              className={`px-3 py-1 rounded-md transition-colors ${
-                statusFilter === 'PASS' ? 'bg-emerald-600 text-white shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
+              className={`px-3 py-1 rounded-md transition-all duration-150 active:scale-95 ${
+                statusFilter === 'PASS' ? 'bg-emerald-600 text-white shadow-sm font-semibold scale-[1.02]' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Pass
             </button>
             <button
               onClick={() => setStatusFilter('FAIL')}
-              className={`px-3 py-1 rounded-md transition-colors ${
-                statusFilter === 'FAIL' ? 'bg-red-600 text-white shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
+              className={`px-3 py-1 rounded-md transition-all duration-150 active:scale-95 ${
+                statusFilter === 'FAIL' ? 'bg-red-600 text-white shadow-sm font-semibold scale-[1.02]' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Fail
@@ -385,8 +385,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             <button
               onClick={() => setViewMode('matrix')}
               title="Expanded Subject Columns Matrix"
-              className={`p-1.5 rounded-md transition-colors ${
-                viewMode === 'matrix' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+              className={`p-1.5 rounded-md transition-all duration-150 active:scale-90 ${
+                viewMode === 'matrix' ? 'bg-white text-emerald-600 shadow-sm scale-105' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
               <TableIcon className="w-4 h-4" />
@@ -394,8 +394,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             <button
               onClick={() => setViewMode('row-summary')}
               title="Standard Single Row Table View"
-              className={`p-1.5 rounded-md transition-colors ${
-                viewMode === 'row-summary' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+              className={`p-1.5 rounded-md transition-all duration-150 active:scale-90 ${
+                viewMode === 'row-summary' ? 'bg-white text-emerald-600 shadow-sm scale-105' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
               <LayoutList className="w-4 h-4" />
@@ -403,8 +403,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             <button
               onClick={() => setViewMode('cards')}
               title="Card View"
-              className={`p-1.5 rounded-md transition-colors ${
-                viewMode === 'cards' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+              className={`p-1.5 rounded-md transition-all duration-150 active:scale-90 ${
+                viewMode === 'cards' ? 'bg-white text-emerald-600 shadow-sm scale-105' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
               <Grid className="w-4 h-4" />
