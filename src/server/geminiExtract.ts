@@ -46,10 +46,18 @@ export async function processExtractResult(imageBase64: string, mimeType: string
             },
             {
               text: `Analyze this student result / marks card / grade sheet screenshot.
-CRITICAL INSTRUCTION FOR WATERMARKS & EXTERNAL MARKS:
-1. University screenshots (such as VTU) have a large semi-transparent circular watermark or emblem in the background passing through the middle columns (Internal Marks and External Marks).
-2. IGNORE the background watermark seal/graphics and extract the actual printed numbers in the External Marks column.
-3. MATH FORMULA MANDATE: Total Marks = Internal Marks + External Marks. Therefore, External Marks = Total Marks - Internal Marks. If the External Marks column is faint or obscured by the circular emblem watermark, calculate External Marks by subtracting Internal Marks from Total Marks (e.g., if Total is 42 and Internal is 22, External MUST be 20). DO NOT leave External Marks empty or as "-".
+CRITICAL INSTRUCTIONS FOR EXTRACTION:
+
+1. STRICT SUBJECT CODE AND SUBJECT NAME ALIGNMENT:
+   - The result table always contains a "Subject Code" (or "Sub Code" / "Course Code") column and an adjacent "Subject Name" (or "Subject Title" / "Course Title") column.
+   - Read row by row: Extract the EXACT Subject Code from the Subject Code column (e.g., "BCS401", "21CS42", "18MAT31", "BBOC407", "21CSL48", "21MAT31") and pair it with its corresponding Subject Name from the adjacent cell in that exact same row (e.g., "ANALYSIS & DESIGN OF ALGORITHMS").
+   - If Subject Code and Subject Name are merged in a single cell (e.g. "BCS401 - ANALYSIS & DESIGN OF ALGORITHMS" or "21CS42 DATA STRUCTURES"), split them cleanly so subjectCode gets the code and subjectName gets the title.
+   - EVERY subject row MUST have both subjectCode and subjectName populated. Do NOT skip or leave subjectCode blank!
+
+2. WATERMARKS & EXTERNAL MARKS:
+   - University screenshots (such as VTU) have a large semi-transparent circular watermark or emblem in the background passing through middle columns.
+   - IGNORE the background emblem and extract actual printed numbers in External Marks.
+   - MATH FORMULA MANDATE: Total Marks = Internal Marks + External Marks. Therefore, External Marks = Total Marks - Internal Marks. If External Marks is faint or obscured, calculate it using (Total Marks - Internal Marks)!
 
 Extract all fields carefully:
 1. Student USN / Roll Number / Register Number (e.g. 3SL23CS039).
@@ -59,10 +67,10 @@ Extract all fields carefully:
 5. Examination Session / Announced Date (if present).
 6. Overall SGPA / CGPA / Status.
 7. ALL Subjects in the table:
-   - subjectCode (e.g. BCS401, BBOC407)
+   - subjectCode (e.g. BCS401, BBOC407, 21CS42)
    - subjectName (e.g. ANALYSIS & DESIGN OF ALGORITHMS)
    - internalMarks (as string, e.g. "22")
-   - externalMarks (as string, e.g. "20", "18", "23", "0", "27", "25"). If faint/obscured by background emblem, derive using (Total - Internal)!
+   - externalMarks (as string, e.g. "20"). If faint, derive using (Total - Internal)!
    - totalMarks (as string, e.g. "42")
    - result (e.g. "P", "F", "A")
    - grade / credits if present.`,
@@ -94,8 +102,8 @@ Extract all fields carefully:
                       items: {
                         type: Type.OBJECT,
                         properties: {
-                          subjectCode: { type: Type.STRING, description: "Subject code" },
-                          subjectName: { type: Type.STRING, description: "Subject full name" },
+                          subjectCode: { type: Type.STRING, description: "Alphanumeric subject code extracted from the 'Subject Code' column (e.g. BCS401, 21CS42, 18MAT31)" },
+                          subjectName: { type: Type.STRING, description: "Subject name extracted from the adjacent 'Subject Name' / 'Subject Title' column (e.g. ANALYSIS & DESIGN OF ALGORITHMS)" },
                           result: { type: Type.STRING, description: "Result or grade from next column" },
                           internalMarks: { 
                             type: Type.STRING, 
@@ -109,7 +117,7 @@ Extract all fields carefully:
                           grade: { type: Type.STRING, description: "Grade letter" },
                           credits: { type: Type.STRING, description: "Credits" },
                         },
-                        required: ["subjectName", "result"],
+                        required: ["subjectCode", "subjectName", "result"],
                       },
                     },
                   },
@@ -164,6 +172,32 @@ Extract all fields carefully:
         // Unify result / grade variations
         const resVal = sub.result || sub.grade || sub.remarks || sub.status;
 
+        let finalCode = subCode !== undefined && subCode !== null ? String(subCode).trim() : '';
+        let finalName = subName !== undefined && subName !== null ? String(subName).trim() : '';
+
+        // Auto-detect and split subject code & name if code is missing or prefixed in name
+        if (!finalCode && finalName) {
+          // Look for subject code pattern at start of subjectName (e.g., BCS401 - ANALYSIS & DESIGN OR 21CS42 DATA STRUCTURES)
+          const match = finalName.match(/^([A-Z0-9]{3,12})[\s\-:\/]+(.+)$/i);
+          if (match) {
+            finalCode = match[1].toUpperCase();
+            finalName = match[2].trim();
+          }
+        } else if (finalCode && !finalName) {
+          const match = finalCode.match(/^([A-Z0-9]{3,12})[\s\-:\/]+(.+)$/i);
+          if (match) {
+            finalCode = match[1].toUpperCase();
+            finalName = match[2].trim();
+          }
+        } else if (finalCode && finalName) {
+          // If finalName begins with finalCode (e.g. "BCS401 - ANALYSIS & DESIGN OF ALGORITHMS"), clean finalName
+          const escapedCode = finalCode.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          const repeatRegex = new RegExp(`^${escapedCode}[\\s\\-:\\/]+`, 'i');
+          if (repeatRegex.test(finalName)) {
+            finalName = finalName.replace(repeatRegex, '').trim();
+          }
+        }
+
         let extMarksStr = extVal !== undefined && extVal !== null ? String(extVal).trim() : '';
         let intMarksStr = intVal !== undefined && intVal !== null ? String(intVal).trim() : '';
         let totMarksStr = totVal !== undefined && totVal !== null ? String(totVal).trim() : '';
@@ -179,8 +213,8 @@ Extract all fields carefully:
 
         return {
           ...sub,
-          subjectCode: subCode ? String(subCode).trim() : sub.subjectCode,
-          subjectName: subName ? String(subName).trim() : sub.subjectName,
+          subjectCode: finalCode,
+          subjectName: finalName || finalCode,
           externalMarks: extMarksStr,
           internalMarks: intMarksStr,
           totalMarks: totMarksStr,

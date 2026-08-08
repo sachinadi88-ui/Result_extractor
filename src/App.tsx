@@ -16,6 +16,7 @@ import { StudentRecord, AuthUser } from './types';
 import { getStoredStudentRecords, saveStudentRecords, exportToExcel } from './utils/storage';
 import { exportToPDF, exportToPDFLandscape } from './utils/pdfExport';
 import { getEffectiveStatus, getDepartmentFromUsn, filterRecordsBySemester } from './utils/statusHelper';
+import { mergeExtractedStudentsWithExisting } from './utils/mergeRecords';
 import {
   saveRecordToFirestore,
   saveMultipleRecordsToFirestore,
@@ -202,24 +203,57 @@ export default function App() {
       return;
     }
 
-    const createdRecords: StudentRecord[] = newStudents.map((s, idx) => ({
-      ...s,
-      status: getEffectiveStatus(s),
-      id: `rec-${Date.now()}-${idx}`,
-      uploadedAt: new Date().toISOString(),
-      imageUrl: imageBase64,
-    }));
-
-    // Update React state
-    setRecords((prev) => [...createdRecords, ...prev]);
-
     setIsSyncingFirebase(true);
     try {
-      // Automatically store extracted student details into Firebase database!
-      await saveMultipleRecordsToFirestore(createdRecords, currentUser.email);
-      showToast(`Successfully extracted & saved ${createdRecords.length} student record(s) to Firebase for ${currentUser.name}!`);
+      // 1. Fetch all existing records across all semesters to verify USNs & lower semester backlogs
+      const allExisting = await fetchStudentRecordsFromFirestore(currentUser.email, 'ALL');
+      
+      // Combine with current state in case any unsaved local records exist
+      const existingMap = new Map<string, StudentRecord>();
+      (allExisting || []).forEach(r => existingMap.set(r.id, r));
+      records.forEach(r => existingMap.set(r.id, r));
+
+      const combinedExisting = Array.from(existingMap.values());
+
+      // 2. Perform smart merge & update (verifies USN, subject codes, individual marks & updates lower semester backlogs)
+      const { recordsToSave, updatedAllRecords, extractedSemesters, summary } = mergeExtractedStudentsWithExisting(
+        combinedExisting,
+        newStudents,
+        imageBase64
+      );
+
+      // 3. Determine target semester view so newly uploaded semester records are immediately visible
+      let targetSem = selectedSemester;
+      if (extractedSemesters.length > 0) {
+        const primaryExtractedSem = extractedSemesters[0];
+        if (selectedSemester !== 'ALL' && selectedSemester !== primaryExtractedSem) {
+          targetSem = primaryExtractedSem;
+          setSelectedSemester(targetSem);
+        }
+      }
+
+      // Update React state with records filtered by targetSem
+      const visibleRecords = filterRecordsBySemester(updatedAllRecords, targetSem);
+      setRecords(visibleRecords);
+
+      // 4. Save/update the changed/created records in Firebase
+      if (recordsToSave.length > 0) {
+        await saveMultipleRecordsToFirestore(recordsToSave, currentUser.email);
+      }
+
+      // 5. Informative Toast Feedback
+      if (summary.createdCount === 0 && summary.updatedCount === 0) {
+        showToast('Duplicate marksheet detected: Results already exist in database. No new row created.');
+      } else {
+        const feedbackParts: string[] = [];
+        if (summary.createdCount > 0) feedbackParts.push(`${summary.createdCount} new student record(s) added`);
+        if (summary.updatedCount > 0) feedbackParts.push(`${summary.updatedCount} record(s) updated with new marks/backlogs`);
+        if (summary.skippedCount > 0) feedbackParts.push(`${summary.skippedCount} duplicate sheet(s) skipped`);
+
+        showToast(feedbackParts.join(', '));
+      }
     } catch (err) {
-      console.error('Error auto-syncing to Firebase:', err);
+      console.error('Error processing & syncing extracted records:', err);
       showToast('Extraction complete, but failed to sync to Firebase database.');
     } finally {
       setIsSyncingFirebase(false);

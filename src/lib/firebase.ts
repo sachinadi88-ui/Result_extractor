@@ -81,6 +81,29 @@ export async function logoutFirebase() {
   await firebaseSignOut(auth);
 }
 
+// Helper to recursively remove undefined values (which Firestore rejects)
+function sanitizeForFirestore<T>(data: T): T {
+  if (data === undefined) {
+    return null as unknown as T;
+  }
+  if (data === null) {
+    return null as unknown as T;
+  }
+  if (Array.isArray(data)) {
+    return data.map((item) => sanitizeForFirestore(item)) as unknown as T;
+  }
+  if (typeof data === 'object' && !(data instanceof Date)) {
+    const cleanObj: Record<string, any> = {};
+    for (const [key, val] of Object.entries(data as Record<string, any>)) {
+      if (val !== undefined) {
+        cleanObj[key] = sanitizeForFirestore(val);
+      }
+    }
+    return cleanObj as T;
+  }
+  return data;
+}
+
 // Helper to sanitize key for RTDB
 function sanitizeEmailKey(email: string): string {
   return email.replace(/[.#$[\]]/g, '_');
@@ -88,11 +111,11 @@ function sanitizeEmailKey(email: string): string {
 
 // Firestore & Realtime Database Helper Functions for Student Records
 export async function saveRecordToFirestore(record: StudentRecord, userEmail: string): Promise<void> {
-  const docData = {
+  const docData = sanitizeForFirestore({
     ...record,
     extractedByEmail: userEmail,
     updatedAt: new Date().toISOString()
-  };
+  });
 
   // 1. Save to Firestore Primary (student-result-extractor)
   try {
@@ -112,20 +135,6 @@ export async function saveRecordToFirestore(record: StudentRecord, userEmail: st
       console.warn("Provisioned Firestore save notice:", error);
     }
   }
-
-  // 3. Save to Realtime Database - DEACTIVATED to avoid dual-write overhead/free-tier limits
-  /*
-  if (rtdb) {
-    try {
-      const userKey = sanitizeEmailKey(userEmail);
-      const rtdbRef = ref(rtdb, `student_records/${userKey}/${record.id}`);
-      await set(rtdbRef, docData);
-      console.log(`Saved student record ${record.id} (${record.usn}) to Realtime Database.`);
-    } catch (rtdbErr: any) {
-      console.warn("Realtime DB write notice:", rtdbErr?.message || rtdbErr);
-    }
-  }
-  */
 }
 
 export async function saveMultipleRecordsToFirestore(records: StudentRecord[], userEmail: string): Promise<void> {
@@ -139,11 +148,11 @@ export async function saveMultipleRecordsToFirestore(records: StudentRecord[], u
     try {
       const batch = writeBatch(db);
       chunk.forEach((record) => {
-        const docData = {
+        const docData = sanitizeForFirestore({
           ...record,
           extractedByEmail: userEmail,
           updatedAt: new Date().toISOString()
-        };
+        });
         const recordRef = doc(db, "student_records", record.id);
         batch.set(recordRef, docData, { merge: true });
       });
@@ -166,11 +175,11 @@ export async function saveMultipleRecordsToFirestore(records: StudentRecord[], u
       try {
         const batchProv = writeBatch(dbProvisioned);
         chunk.forEach((record) => {
-          const docData = {
+          const docData = sanitizeForFirestore({
             ...record,
             extractedByEmail: userEmail,
             updatedAt: new Date().toISOString()
-          };
+          });
           const provRef = doc(dbProvisioned, "student_records", record.id);
           batchProv.set(provRef, docData, { merge: true });
         });

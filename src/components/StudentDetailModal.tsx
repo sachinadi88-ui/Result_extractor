@@ -135,32 +135,57 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
         const extSubjects: SubjectResult[] = match.subjects || [];
 
         extSubjects.forEach((extSub) => {
-          const extCode = (extSub.subjectCode || '').trim().toLowerCase();
-          const extName = (extSub.subjectName || '').trim().toLowerCase();
+          let extCode = (extSub.subjectCode || '').trim();
+          let extName = (extSub.subjectName || '').trim();
+
+          // Split subjectCode from subjectName if code was missing or merged in subjectName
+          if (!extCode && extName) {
+            const match = extName.match(/^([A-Z0-9]{3,12})[\s\-:\/]+(.+)$/i);
+            if (match) {
+              extCode = match[1].toUpperCase();
+              extName = match[2].trim();
+            }
+          } else if (extCode && extName) {
+            const escapedCode = extCode.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const repeatRegex = new RegExp(`^${escapedCode}[\\s\\-:\\/]+`, 'i');
+            if (repeatRegex.test(extName)) {
+              extName = extName.replace(repeatRegex, '').trim();
+            }
+          }
+
+          const normExtCode = extCode.toLowerCase();
+          const normExtName = extName.toLowerCase();
 
           // Try to match existing subject index
           const matchIdx = updatedSubjects.findIndex((s) => {
             const sCode = (s.subjectCode || '').trim().toLowerCase();
             const sName = (s.subjectName || '').trim().toLowerCase();
-            return (extCode && sCode && extCode === sCode) || (extName && sName && (sName.includes(extName) || extName.includes(sName)));
+
+            if (normExtCode && sCode) {
+              return normExtCode === sCode;
+            }
+            if (normExtName && sName) {
+              return normExtName === sName || sName.includes(normExtName) || normExtName.includes(sName);
+            }
+            return false;
           });
 
           if (matchIdx !== -1) {
             const existing = updatedSubjects[matchIdx];
             updatedSubjects[matchIdx] = {
-              subjectCode: extSub.subjectCode || existing.subjectCode || '',
-              subjectName: extSub.subjectName || existing.subjectName || '',
-              internalMarks: extSub.internalMarks || existing.internalMarks || '',
-              externalMarks: extSub.externalMarks || existing.externalMarks || '',
-              totalMarks: extSub.totalMarks || existing.totalMarks || '',
+              subjectCode: extCode || existing.subjectCode || '',
+              subjectName: extName || existing.subjectName || '',
+              internalMarks: extSub.internalMarks !== undefined && extSub.internalMarks !== '' ? extSub.internalMarks : existing.internalMarks || '',
+              externalMarks: extSub.externalMarks !== undefined && extSub.externalMarks !== '' ? extSub.externalMarks : existing.externalMarks || '',
+              totalMarks: extSub.totalMarks !== undefined && extSub.totalMarks !== '' ? extSub.totalMarks : existing.totalMarks || '',
               result: extSub.result || existing.result || 'PASS',
               grade: extSub.grade || existing.grade,
               credits: extSub.credits || existing.credits,
             };
           } else {
             updatedSubjects.push({
-              subjectCode: extSub.subjectCode || '',
-              subjectName: extSub.subjectName || 'Subject',
+              subjectCode: extCode || '',
+              subjectName: extName || 'Subject',
               internalMarks: extSub.internalMarks || '',
               externalMarks: extSub.externalMarks || '',
               totalMarks: extSub.totalMarks || '',
@@ -189,14 +214,11 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
         };
 
         setFormData(updatedRecordToSave);
-
-        // Immediately trigger onSave so the re-analyzed data is automatically synced & saved to Firestore
-        onSave(updatedRecordToSave);
       }
 
       setReanalyzeStatus({
         type: 'success',
-        message: 'Image re-analyzed successfully! Updated external marks and missing values.',
+        message: 'Image re-analyzed! Form fields updated. Click "Save Changes" to save to database.',
       });
 
       setTimeout(() => {

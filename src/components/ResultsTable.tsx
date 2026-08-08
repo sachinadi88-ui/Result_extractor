@@ -715,6 +715,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                     let colSubName = '';
                     let isNonCredit = false;
 
+                    const isAllSemesters = !semesterFilter || semesterFilter.toUpperCase() === 'ALL';
+
                     for (const r of records) {
                       const sub = r.subjects?.[i];
                       if (sub) {
@@ -727,34 +729,36 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                     return (
                       <th key={i} className="px-2 py-2 w-[180px] min-w-[180px] max-w-[180px] border-r border-slate-200 text-center align-top bg-slate-100">
                         <div className="flex flex-row sm:flex-col items-center justify-center sm:justify-between h-full gap-1">
-                          <div className="font-bold text-slate-800 text-[11px] leading-tight truncate max-w-[125px] sm:max-w-[170px]" title={colSubName ? `${colSubCode ? colSubCode + ': ' : ''}${colSubName}` : `Subject #${i + 1}`}>
-                            {colSubCode ? colSubCode : `Subject #${i + 1}`}
+                          <div className="font-bold text-slate-800 text-[11px] leading-tight truncate max-w-[125px] sm:max-w-[170px]" title={!isAllSemesters && colSubName ? `${colSubCode ? colSubCode + ': ' : ''}${colSubName}` : `Subject #${i + 1}`}>
+                            {isAllSemesters ? `Subject #${i + 1}` : (colSubCode ? colSubCode : `Subject #${i + 1}`)}
                           </div>
-                          <label
-                            className={`inline-flex items-center p-0.5 sm:px-1.5 sm:py-0.5 rounded text-[10px] font-medium border transition-colors select-none shrink-0 ${
-                              isLocked
-                                ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-pointer hover:bg-slate-200'
-                                : isNonCredit
-                                ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold cursor-pointer'
-                                : 'bg-white hover:bg-slate-200 text-slate-600 border-slate-300 cursor-pointer'
-                            }`}
-                            title={isLocked ? "System locked: Click to enter password and unlock editing" : "Check if this is a Non-Credit subject (excluded from total marks)"}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (isLocked && onRequestUnlock) {
-                                onRequestUnlock();
-                              }
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              disabled={isLocked}
-                              checked={isNonCredit}
-                              onChange={(e) => handleToggleNonCreditColumn(i, colSubCode, e.target.checked)}
-                              className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 sm:w-3 sm:h-3 cursor-pointer disabled:cursor-not-allowed"
-                            />
-                            <span className="hidden sm:inline ml-1">Non-Credit</span>
-                          </label>
+                          {!isAllSemesters && (
+                            <label
+                              className={`inline-flex items-center p-0.5 sm:px-1.5 sm:py-0.5 rounded text-[10px] font-medium border transition-colors select-none shrink-0 ${
+                                isLocked
+                                  ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-pointer hover:bg-slate-200'
+                                  : isNonCredit
+                                  ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold cursor-pointer'
+                                  : 'bg-white hover:bg-slate-200 text-slate-600 border-slate-300 cursor-pointer'
+                              }`}
+                              title={isLocked ? "System locked: Click to enter password and unlock editing" : "Check if this is a Non-Credit subject (excluded from total marks)"}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isLocked && onRequestUnlock) {
+                                  onRequestUnlock();
+                                }
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                disabled={isLocked}
+                                checked={isNonCredit}
+                                onChange={(e) => handleToggleNonCreditColumn(i, colSubCode, e.target.checked)}
+                                className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 sm:w-3 sm:h-3 cursor-pointer disabled:cursor-not-allowed"
+                              />
+                              <span className="hidden sm:inline ml-1">Non-Credit</span>
+                            </label>
+                          )}
                         </div>
                       </th>
                     );
