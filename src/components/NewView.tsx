@@ -22,6 +22,24 @@ import {
 import { StudentRecord } from '../types';
 import { isStudentPass, isSubjectPass, getEffectiveStatus, getDepartmentFromUsn, getStudentTotalMarks } from '../utils/statusHelper';
 
+function formatClearedDate(isoString?: string): string {
+  if (!isoString) return '';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return isoString;
+    return d.toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return isoString;
+  }
+}
+
 interface NewViewProps {
   records: StudentRecord[];
   onBackToMain: () => void;
@@ -607,10 +625,18 @@ export const NewView: React.FC<NewViewProps> = ({
                                                 {sub.totalMarks || '-'}
                                               </td>
                                               <td className="px-3 py-2 text-center">
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold inline-flex items-center gap-1 ${
                                                   subPass ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
                                                 }`}>
-                                                  {sub.result}
+                                                  <span>{sub.result}</span>
+                                                  {sub.clearedAt && (
+                                                    <span
+                                                      className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-[#dc2626] text-white text-[9px] font-serif font-bold italic cursor-help shrink-0"
+                                                      title={`Updated/Cleared from ${sub.previousResult || 'FAIL'} to PASS on ${formatClearedDate(sub.clearedAt)}`}
+                                                    >
+                                                      i
+                                                    </span>
+                                                  )}
                                                 </span>
                                               </td>
                                             </tr>

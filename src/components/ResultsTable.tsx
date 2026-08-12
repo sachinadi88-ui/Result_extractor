@@ -24,8 +24,26 @@ import {
   Layers
 } from 'lucide-react';
 import { StudentRecord, SubjectResult } from '../types';
-import { isSubjectPass, isStudentPass, getEffectiveStatus, getStudentTotalMarks } from '../utils/statusHelper';
+import { isSubjectPass, isStudentPass, getEffectiveStatus, getStudentTotalMarks, sanitizeSubject } from '../utils/statusHelper';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
+
+function formatClearedDate(isoString?: string): string {
+  if (!isoString) return '';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return isoString;
+    return d.toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return isoString;
+  }
+}
 
 interface ResultsTableProps {
   records: StudentRecord[];
@@ -536,7 +554,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                       <td className="px-4 py-3.5 align-top">
                         <div className="flex flex-wrap gap-2 max-w-3xl">
                           {student.subjects && student.subjects.length > 0 ? (
-                            student.subjects.map((s, idx) => {
+                            student.subjects.map((rawS, idx) => {
+                              const s = sanitizeSubject(rawS);
                               const subPass = isSubjectPass(s);
                               const hasMarks = s.internalMarks || s.externalMarks || s.totalMarks;
 
@@ -802,10 +821,11 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                         {student.name}
                       </td>
                       {Array.from({ length: maxSubjects }).map((_, i) => {
-                        const sub = student.subjects?.[i];
-                        if (!sub) {
+                        const rawSub = student.subjects?.[i];
+                        if (!rawSub) {
                           return <td key={i} className="px-3 py-1.5 text-slate-400 text-[10px] italic border-r border-slate-100/60 w-[180px] min-w-[180px] max-w-[180px]">-</td>;
                         }
+                        const sub = sanitizeSubject(rawSub);
                         const pass = isSubjectPass(sub);
                         return (
                           <td key={i} className="px-2 py-1.5 border-r border-slate-100/80 w-[180px] min-w-[180px] max-w-[180px]">
@@ -823,8 +843,16 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                                   Int: <span className="font-semibold">{sub.internalMarks || '-'}</span> | Ext: <span className="font-semibold">{sub.externalMarks || '-'}</span> | Tot: <strong className="text-slate-900 font-bold">{sub.totalMarks || '-'}</strong>
                                 </div>
                               )}
-                              <div className={`font-bold text-[10px] leading-tight mt-0.5 ${pass ? 'text-emerald-700' : 'text-red-700 font-black'}`}>
-                                Result: {sub.result}
+                              <div className={`font-bold text-[10px] leading-tight mt-0.5 flex items-center justify-between ${pass ? 'text-emerald-700' : 'text-red-700 font-black'}`}>
+                                <span>Result: {sub.result}</span>
+                                {sub.clearedAt && (
+                                  <span
+                                    className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-[#dc2626] text-white text-[9px] font-serif font-bold italic cursor-help ml-1 shrink-0 shadow-2xs"
+                                    title={`Updated/Cleared from ${sub.previousResult || 'FAIL'} to PASS on ${formatClearedDate(sub.clearedAt)}`}
+                                  >
+                                    i
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </td>
@@ -937,7 +965,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                       Extracted Subjects ({student.subjects?.length || 0})
                     </span>
                     <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
-                      {student.subjects?.map((s, idx) => (
+                      {student.subjects?.map((rawSub, idx) => {
+                        const s = sanitizeSubject(rawSub);
+                        return (
                         <div key={idx} className="p-2 rounded bg-slate-50 border border-slate-100 space-y-1 text-xs">
                           <div className="flex items-center justify-between font-medium">
                             <span className="text-slate-900 font-bold truncate max-w-[180px] inline-flex items-center gap-1" title={s.subjectName}>
@@ -949,13 +979,21 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                               )}
                             </span>
                             <span
-                              className={`font-bold font-mono text-[10px] px-1.5 py-0.5 rounded ${
+                              className={`font-bold font-mono text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-1 ${
                                 !isSubjectPass(s)
                                   ? 'bg-red-100 text-red-800'
                                   : 'bg-emerald-100 text-emerald-800'
                               }`}
                             >
-                              {s.result}
+                              <span>{s.result}</span>
+                              {s.clearedAt && (
+                                <span
+                                  className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-[#dc2626] text-white text-[9px] font-serif font-bold italic cursor-help shrink-0"
+                                  title={`Updated/Cleared from ${s.previousResult || 'FAIL'} to PASS on ${formatClearedDate(s.clearedAt)}`}
+                                >
+                                  i
+                                </span>
+                              )}
                             </span>
                           </div>
                           {(s.internalMarks || s.externalMarks || s.totalMarks) && (
@@ -966,7 +1004,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             </div>
                           )}
                         </div>
-                      ))}
+                      );
+                    })}
                     </div>
                   </div>
                 </div>

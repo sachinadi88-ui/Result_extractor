@@ -1,5 +1,72 @@
 import { StudentRecord, SubjectResult } from '../types';
 
+export function cleanMarkVal(val: any): string {
+  if (val === undefined || val === null) return '';
+  const str = String(val).trim();
+  if (!str) return '';
+  if (/^\d+$/.test(str)) return str;
+  const upper = str.toUpperCase();
+  if (upper === 'AB' || upper === 'ABS' || upper === 'ABSENT' || upper === 'A') return 'AB';
+  const match = str.match(/\d+/);
+  if (match) return match[0];
+  return str.replace(/flashCard/gi, '').replace(/presidency/gi, '').replace(/examination Marks/gi, '').replace(/(Marks){1,}/gi, '').trim();
+}
+
+export function cleanResultVal(val: any): string {
+  if (val === undefined || val === null) return '';
+  const str = String(val).trim();
+  if (!str) return '';
+  const upper = str.toUpperCase();
+  if (upper === 'PASS' || upper === 'P') return 'PASS';
+  if (upper === 'FAIL' || upper === 'F') return 'FAIL';
+  if (upper === 'ABSENT' || upper === 'A') return 'ABSENT';
+  const match = str.match(/\b(PASS|FAIL|P|F|ABSENT|A)\b/i);
+  if (match) {
+    const m = match[1].toUpperCase();
+    if (m === 'P' || m === 'PASS') return 'PASS';
+    if (m === 'F' || m === 'FAIL') return 'FAIL';
+    if (m === 'A' || m === 'ABSENT') return 'ABSENT';
+  }
+  return str;
+}
+
+export function cleanSubjectNameVal(name: string): string {
+  if (!name) return '';
+  let s = String(name).trim();
+  s = s.replace(/flashCard/gi, '');
+  s = s.replace(/presidency/gi, '');
+  s = s.replace(/examination Marks/gi, '');
+  s = s.replace(/External Marks \d*/gi, '');
+  s = s.replace(/Internal Marks \d*/gi, '');
+  s = s.replace(/Result [PF]/gi, '');
+  s = s.replace(/Announced Date \d{4}-\d{2}-\d{2}/gi, '');
+  s = s.replace(/(Marks){1,}/gi, '');
+  s = s.replace(/\s+/g, ' ').trim();
+  return s;
+}
+
+export function sanitizeSubject(s: SubjectResult): SubjectResult {
+  if (!s) return s;
+  return {
+    ...s,
+    subjectName: cleanSubjectNameVal(s.subjectName || ''),
+    internalMarks: cleanMarkVal(s.internalMarks),
+    externalMarks: cleanMarkVal(s.externalMarks),
+    totalMarks: cleanMarkVal(s.totalMarks),
+    result: cleanResultVal(s.result) || s.result,
+  };
+}
+
+export function sanitizeRecord(record: StudentRecord): StudentRecord {
+  if (!record) return record;
+  return {
+    ...record,
+    subjects: Array.isArray(record.subjects)
+      ? record.subjects.map(sanitizeSubject)
+      : [],
+  };
+}
+
 export function filterRecordsBySemester(records: StudentRecord[], semesterFilter?: any): StudentRecord[] {
   if (!semesterFilter || typeof semesterFilter !== 'string' || semesterFilter === 'ALL') {
     return records;

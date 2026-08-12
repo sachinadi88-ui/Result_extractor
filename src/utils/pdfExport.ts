@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { StudentRecord } from '../types';
-import { getEffectiveStatus, getStudentTotalMarks, isStudentPass, isSubjectPass, getDepartmentFromUsn } from './statusHelper';
+import { getEffectiveStatus, getStudentTotalMarks, isStudentPass, isSubjectPass, getDepartmentFromUsn, sanitizeRecord, cleanMarkVal } from './statusHelper';
 
 // Helper to convert the college logo crest to a base64 string for embedding
 function getLogoDataUrl(): Promise<string | null> {
@@ -64,8 +64,9 @@ function getLogoDataUrl(): Promise<string | null> {
   });
 }
 
-export async function exportToPDF(records: StudentRecord[]): Promise<void> {
-  if (!records || records.length === 0) return;
+export async function exportToPDF(rawRecords: StudentRecord[]): Promise<void> {
+  if (!rawRecords || rawRecords.length === 0) return;
+  const records = rawRecords.map(sanitizeRecord);
 
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -662,8 +663,9 @@ export async function exportToPDF(records: StudentRecord[]): Promise<void> {
   doc.save(filename);
 }
 
-export async function exportToPDFLandscape(records: StudentRecord[]): Promise<void> {
-  if (!records || records.length === 0) return;
+export async function exportToPDFLandscape(rawRecords: StudentRecord[]): Promise<void> {
+  if (!rawRecords || rawRecords.length === 0) return;
+  const records = rawRecords.map(sanitizeRecord);
 
   const doc = new jsPDF({
     orientation: 'landscape',
@@ -889,7 +891,8 @@ export async function exportToPDFLandscape(records: StudentRecord[]): Promise<vo
           return (uniqueSub.code && sCode === uniqueSub.code.toUpperCase()) || sName === uniqueSub.name.toUpperCase();
         });
 
-        studentRow.push(studentSub ? (studentSub.totalMarks || '-') : '-');
+        const markVal = studentSub ? (cleanMarkVal(studentSub.totalMarks) || '-') : '-';
+        studentRow.push(markVal);
       });
 
       studentRow.push(totalInfo.display);

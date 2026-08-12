@@ -16,6 +16,8 @@ export interface SubjectResult {
   credits?: string;
   isNonCredit?: boolean; // Flag to exclude subject marks from total score
   facultyName?: string; // Faculty member assigned to teach this subject
+  clearedAt?: string; // Timestamp string when a failed result was updated/cleared to passed
+  previousResult?: string; // Previous result before clearing e.g. "FAIL"
 }
 
 export interface StudentRecord {

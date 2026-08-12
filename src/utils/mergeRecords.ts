@@ -1,4 +1,5 @@
 import { StudentRecord, SubjectResult } from '../types';
+import { isSubjectPass } from './statusHelper';
 
 export interface MergeResult {
   recordsToSave: StudentRecord[];
@@ -13,12 +14,22 @@ export interface MergeResult {
 }
 
 /**
- * Normalizes semester text (e.g. "Semester : 4", "Sem 3", "3rd", "3") into a simple digit string "3", "4", etc.
+ * Normalizes semester text (e.g. "Semester : 4", "Sem 3", "3rd", "3", "I", "II") into a simple digit string "1", "2", "3", "4", etc.
  */
 export function normalizeSemester(sem?: string): string {
   if (!sem) return '';
-  const match = String(sem).match(/\d+/);
-  return match ? match[0] : String(sem).trim();
+  const str = String(sem).trim().toUpperCase();
+  if (str === 'I' || str === '1ST' || str === 'SEM 1' || str === 'SEMESTER 1' || str === 'SEMESTER I') return '1';
+  if (str === 'II' || str === '2ND' || str === 'SEM 2' || str === 'SEMESTER 2' || str === 'SEMESTER II') return '2';
+  if (str === 'III' || str === '3RD' || str === 'SEM 3' || str === 'SEMESTER 3' || str === 'SEMESTER III') return '3';
+  if (str === 'IV' || str === '4TH' || str === 'SEM 4' || str === 'SEMESTER 4' || str === 'SEMESTER IV') return '4';
+  if (str === 'V' || str === '5TH' || str === 'SEM 5' || str === 'SEMESTER 5' || str === 'SEMESTER V') return '5';
+  if (str === 'VI' || str === '6TH' || str === 'SEM 6' || str === 'SEMESTER 6' || str === 'SEMESTER VI') return '6';
+  if (str === 'VII' || str === '7TH' || str === 'SEM 7' || str === 'SEMESTER 7' || str === 'SEMESTER VII') return '7';
+  if (str === 'VIII' || str === '8TH' || str === 'SEM 8' || str === 'SEMESTER 8' || str === 'SEMESTER VIII') return '8';
+
+  const match = str.match(/\d+/);
+  return match ? match[0] : str;
 }
 
 function normalizeStr(s?: string): string {
@@ -131,27 +142,26 @@ export function mergeExtractedStudentsWithExisting(
       }
     }
 
-    // If newSem is empty or omitted, but student has existing records:
-    // If subjects overlap with an existing record, match that existing record!
+    // If newSem is empty or omitted, check subject code/name overlap with existing records
     if (!exactSemRecord && !newSem && studentExistingRecords.length > 0) {
       for (const rec of studentExistingRecords) {
         const existingCodes = new Set((rec.subjects || []).map((s) => normalizeStr(s.subjectCode)).filter(Boolean));
         const existingNames = new Set((rec.subjects || []).map((s) => normalizeStr(s.subjectName)).filter(Boolean));
 
-        const hasOverlap = validSubjects.some((s) => {
+        let matchCount = 0;
+        validSubjects.forEach((s) => {
           const code = normalizeStr(s.subjectCode);
           const name = normalizeStr(s.subjectName);
-          return (code && existingCodes.has(code)) || (name && existingNames.has(name));
+          if ((code && existingCodes.has(code)) || (name && existingNames.has(name))) {
+            matchCount++;
+          }
         });
 
-        if (hasOverlap) {
+        // Match only if at least one subject code or name overlaps
+        if (matchCount > 0) {
           exactSemRecord = rec;
           break;
         }
-      }
-
-      if (!exactSemRecord && studentExistingRecords.length === 1) {
-        exactSemRecord = studentExistingRecords[0];
       }
     }
 
@@ -182,7 +192,7 @@ export function mergeExtractedStudentsWithExisting(
             const oldRes = existingSub.result || '-';
             const newRes = newSub.result || '-';
 
-            existingSubjects[existingSubIdx] = {
+            const mergedSub: SubjectResult = {
               ...existingSub,
               subjectCode: newSub.subjectCode || existingSub.subjectCode,
               subjectName: newSub.subjectName || existingSub.subjectName,
@@ -193,6 +203,15 @@ export function mergeExtractedStudentsWithExisting(
               grade: newSub.grade || existingSub.grade,
               credits: newSub.credits || existingSub.credits,
             };
+
+            const wasFailed = !isSubjectPass(existingSub);
+            const isNowPass = isSubjectPass(mergedSub);
+            if (wasFailed && isNowPass) {
+              mergedSub.clearedAt = new Date().toISOString();
+              mergedSub.previousResult = existingSub.result || 'FAIL';
+            }
+
+            existingSubjects[existingSubIdx] = mergedSub;
             recordUpdated = true;
             updatedDetails.push(`${exactSemRecord.usn} (Sem ${exactSemRecord.semester || 'Current'}): ${newSub.subjectCode} [${oldRes} -> ${newRes}]`);
           }
@@ -217,7 +236,7 @@ export function mergeExtractedStudentsWithExisting(
                 const oldRes = existingSub.result || '-';
                 const newRes = newSub.result || '-';
 
-                otherRec.subjects[otherSubIdx] = {
+                const mergedSub: SubjectResult = {
                   ...existingSub,
                   internalMarks: newSub.internalMarks !== undefined && newSub.internalMarks !== '' ? newSub.internalMarks : existingSub.internalMarks,
                   externalMarks: newSub.externalMarks !== undefined && newSub.externalMarks !== '' ? newSub.externalMarks : existingSub.externalMarks,
@@ -226,6 +245,15 @@ export function mergeExtractedStudentsWithExisting(
                   grade: newSub.grade || existingSub.grade,
                   credits: newSub.credits || existingSub.credits,
                 };
+
+                const wasFailed = !isSubjectPass(existingSub);
+                const isNowPass = isSubjectPass(mergedSub);
+                if (wasFailed && isNowPass) {
+                  mergedSub.clearedAt = new Date().toISOString();
+                  mergedSub.previousResult = existingSub.result || 'FAIL';
+                }
+
+                otherRec.subjects[otherSubIdx] = mergedSub;
                 otherRec.status = calculateRecordStatus(otherRec.subjects);
                 recordsMap.set(otherRec.id, otherRec);
                 recordsToSaveMap.set(otherRec.id, otherRec);
@@ -260,14 +288,10 @@ export function mergeExtractedStudentsWithExisting(
 
     } else {
       // Record for this USN + Semester DOES NOT EXIST YET.
-      // Check if all validSubjects already belong to existing semester records of this student!
-      const mainSemesterSubjects: SubjectResult[] = [];
-
+      // 1. Check if any subject in validSubjects updates a backlog in existing lower semester records
       for (const newSub of validSubjects) {
         const newSubCode = normalizeStr(newSub.subjectCode);
         const newSubName = normalizeStr(newSub.subjectName);
-
-        let belongsToOtherSem = false;
 
         for (const otherRec of studentOtherSemRecords) {
           const otherSubIdx = (otherRec.subjects || []).findIndex((s) => {
@@ -287,7 +311,7 @@ export function mergeExtractedStudentsWithExisting(
               const oldRes = existingSub.result || '-';
               const newRes = newSub.result || '-';
 
-              otherRec.subjects[otherSubIdx] = {
+              const mergedSub: SubjectResult = {
                 ...existingSub,
                 internalMarks: newSub.internalMarks !== undefined && newSub.internalMarks !== '' ? newSub.internalMarks : existingSub.internalMarks,
                 externalMarks: newSub.externalMarks !== undefined && newSub.externalMarks !== '' ? newSub.externalMarks : existingSub.externalMarks,
@@ -296,39 +320,54 @@ export function mergeExtractedStudentsWithExisting(
                 grade: newSub.grade || existingSub.grade,
                 credits: newSub.credits || existingSub.credits,
               };
+
+              const wasFailed = !isSubjectPass(existingSub);
+              const isNowPass = isSubjectPass(mergedSub);
+              if (wasFailed && isNowPass) {
+                mergedSub.clearedAt = new Date().toISOString();
+                mergedSub.previousResult = existingSub.result || 'FAIL';
+              }
+
+              otherRec.subjects[otherSubIdx] = mergedSub;
               otherRec.status = calculateRecordStatus(otherRec.subjects);
               recordsMap.set(otherRec.id, otherRec);
               recordsToSaveMap.set(otherRec.id, otherRec);
               updatedCount++;
               updatedDetails.push(`${otherRec.usn} (Lower Sem ${otherRec.semester}): Backlog ${newSub.subjectCode} updated [${oldRes} -> ${newRes}]`);
             }
-            belongsToOtherSem = true;
             break;
           }
         }
+      }
 
-        if (!belongsToOtherSem) {
-          mainSemesterSubjects.push({ ...newSub });
+      // 2. Determine final semester string for the new record
+      let finalSemVal = newSem;
+      if (!finalSemVal) {
+        let maxSem = 0;
+        for (const r of studentExistingRecords) {
+          const sNum = parseInt(normalizeSemester(r.semester), 10);
+          if (!isNaN(sNum) && sNum > maxSem) {
+            maxSem = sNum;
+          }
         }
+        finalSemVal = maxSem > 0 ? String(maxSem + 1) : '2';
       }
 
-      // DO NOT CREATE A NEW ROW WITH EMPTY SUBJECTS if all subjects were already matched to existing records
-      if (mainSemesterSubjects.length === 0) {
-        skippedCount++;
-      } else {
-        const newRec: StudentRecord = {
-          ...newStudent,
-          subjects: mainSemesterSubjects,
-          status: calculateRecordStatus(mainSemesterSubjects),
-          id: `rec-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 4)}`,
-          uploadedAt: new Date().toISOString(),
-          imageUrl: imageBase64,
-        };
+      // 3. ALWAYS create a separate StudentRecord for this new semester!
+      const newRec: StudentRecord = {
+        ...newStudent,
+        semester: finalSemVal,
+        subjects: validSubjects.map((s) => ({ ...s })),
+        status: calculateRecordStatus(validSubjects),
+        id: `rec-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 4)}`,
+        uploadedAt: new Date().toISOString(),
+        imageUrl: imageBase64,
+      };
 
-        recordsMap.set(newRec.id, newRec);
-        recordsToSaveMap.set(newRec.id, newRec);
-        createdCount++;
-      }
+      recordsMap.set(newRec.id, newRec);
+      recordsToSaveMap.set(newRec.id, newRec);
+      extractedSemSet.add(finalSemVal);
+      createdCount++;
     }
   }
 

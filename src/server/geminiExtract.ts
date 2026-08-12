@@ -20,6 +20,49 @@ function getGenAI(): GoogleGenAI {
   return genAIInstance;
 }
 
+function cleanMarkVal(val: any): string {
+  if (val === undefined || val === null) return '';
+  const str = String(val).trim();
+  if (!str) return '';
+  // If string is already a pure integer
+  if (/^\d+$/.test(str)) return str;
+  // If string contains trailing words like "45 presidency examination Marks" or "7 External Marks"
+  const match = str.match(/\b\d+\b/);
+  if (match) return match[0];
+  return str;
+}
+
+function cleanResultVal(val: any): string {
+  if (val === undefined || val === null) return '';
+  const str = String(val).trim();
+  if (!str) return '';
+  const upper = str.toUpperCase();
+  if (upper === 'PASS' || upper === 'P') return 'PASS';
+  if (upper === 'FAIL' || upper === 'F') return 'FAIL';
+  if (upper === 'ABSENT' || upper === 'A') return 'ABSENT';
+  const match = str.match(/\b(PASS|FAIL|P|F|ABSENT|A)\b/i);
+  if (match) {
+    const m = match[1].toUpperCase();
+    if (m === 'P' || m === 'PASS') return 'PASS';
+    if (m === 'F' || m === 'FAIL') return 'FAIL';
+    if (m === 'A' || m === 'ABSENT') return 'ABSENT';
+  }
+  return str;
+}
+
+function cleanSubjectNameVal(name: string): string {
+  if (!name) return '';
+  let s = String(name).trim();
+  s = s.replace(/presidency examination Marks/gi, '');
+  s = s.replace(/examination Marks/gi, '');
+  s = s.replace(/External Marks \d*/gi, '');
+  s = s.replace(/Internal Marks \d*/gi, '');
+  s = s.replace(/Result [PF]/gi, '');
+  s = s.replace(/Announced Date \d{4}-\d{2}-\d{2}/gi, '');
+  s = s.replace(/\s+/g, ' ').trim();
+  return s;
+}
+
 export async function processExtractResult(imageBase64: string, mimeType: string = "image/png") {
   if (!imageBase64) {
     throw new Error("Image data is required");
@@ -54,25 +97,35 @@ CRITICAL INSTRUCTIONS FOR EXTRACTION:
    - If Subject Code and Subject Name are merged in a single cell (e.g. "BCS401 - ANALYSIS & DESIGN OF ALGORITHMS" or "21CS42 DATA STRUCTURES"), split them cleanly so subjectCode gets the code and subjectName gets the title.
    - EVERY subject row MUST have both subjectCode and subjectName populated. Do NOT skip or leave subjectCode blank!
 
-2. WATERMARKS & EXTERNAL MARKS:
+2. CLEAN NUMERIC MARKS & NO COLUMN HEADER NOISE:
+   - Extract ONLY clean digits for internalMarks, externalMarks, and totalMarks (e.g. "45", "7", "52").
+   - DO NOT include column labels, header words, or footer text like "presidency examination Marks", "External Marks", "Result P", "Announced Date 2025-08-19" inside subject fields, marks, or subject names!
+   - Result MUST be a clean result code like "PASS", "FAIL", "P", or "F".
+
+3. WATERMARKS & EXTERNAL MARKS:
    - University screenshots (such as VTU) have a large semi-transparent circular watermark or emblem in the background passing through middle columns.
    - IGNORE the background emblem and extract actual printed numbers in External Marks.
    - MATH FORMULA MANDATE: Total Marks = Internal Marks + External Marks. Therefore, External Marks = Total Marks - Internal Marks. If External Marks is faint or obscured, calculate it using (Total Marks - Internal Marks)!
+
+4. SEMESTER & MULTI-SEMESTER EXTRACTION:
+   - Carefully detect the Semester / Term from headers or table titles (e.g., "1st Sem", "2nd Sem", "Semester : 1", "Semester : 2", "I Sem", "II Sem").
+   - Always map the semester to a clean single digit string e.g. "1", "2", "3", "4".
+   - If the screenshot shows results for multiple semesters (e.g. 1st Sem table AND 2nd Sem table), extract a SEPARATE student object for EACH semester, setting semester to "1" for the 1st sem entry and "2" for the 2nd sem entry!
 
 Extract all fields carefully:
 1. Student USN / Roll Number / Register Number (e.g. 3SL23CS039).
 2. Student Full Name (e.g. MOHAMMED GAFFAR AASIM).
 3. College / Institution Name (if present).
-4. Semester / Term (e.g. Semester : 4).
+4. Semester / Term (e.g. "1", "2", "3", "4").
 5. Examination Session / Announced Date (if present).
 6. Overall SGPA / CGPA / Status.
 7. ALL Subjects in the table:
    - subjectCode (e.g. BCS401, BBOC407, 21CS42)
    - subjectName (e.g. ANALYSIS & DESIGN OF ALGORITHMS)
-   - internalMarks (as string, e.g. "22")
-   - externalMarks (as string, e.g. "20"). If faint, derive using (Total - Internal)!
-   - totalMarks (as string, e.g. "42")
-   - result (e.g. "P", "F", "A")
+   - internalMarks (ONLY numeric string e.g. "22")
+   - externalMarks (ONLY numeric string e.g. "20"). If faint, derive using (Total - Internal)!
+   - totalMarks (ONLY numeric string e.g. "42")
+   - result (ONLY "P", "F", "PASS", or "FAIL")
    - grade / credits if present.`,
             },
           ],
@@ -198,9 +251,12 @@ Extract all fields carefully:
           }
         }
 
-        let extMarksStr = extVal !== undefined && extVal !== null ? String(extVal).trim() : '';
-        let intMarksStr = intVal !== undefined && intVal !== null ? String(intVal).trim() : '';
-        let totMarksStr = totVal !== undefined && totVal !== null ? String(totVal).trim() : '';
+        finalName = cleanSubjectNameVal(finalName);
+
+        let extMarksStr = cleanMarkVal(extVal);
+        let intMarksStr = cleanMarkVal(intVal);
+        let totMarksStr = cleanMarkVal(totVal);
+        let cleanResStr = cleanResultVal(resVal || sub.result);
 
         // Mathematical deduction fallback: If externalMarks is missing, "-", "N/A", "null", or empty, derive it from Total Marks - Internal Marks
         if (!extMarksStr || extMarksStr === '-' || extMarksStr === 'N/A' || extMarksStr === 'null') {
@@ -218,7 +274,7 @@ Extract all fields carefully:
           externalMarks: extMarksStr,
           internalMarks: intMarksStr,
           totalMarks: totMarksStr,
-          result: resVal !== undefined && resVal !== null ? String(resVal).trim() : sub.result,
+          result: cleanResStr || sub.result || '',
         };
       });
     }

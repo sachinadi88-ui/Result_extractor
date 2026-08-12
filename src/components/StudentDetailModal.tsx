@@ -1,7 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Trash2, Plus, Edit2, FileText, CheckCircle2, XCircle, Eye, ChevronRight, Sparkles, Loader2, RefreshCw, AlertCircle, Lock, Download, ChevronDown, ChevronUp, Layers } from 'lucide-react';
 import { StudentRecord, SubjectResult } from '../types';
-import { isStudentPass, isSubjectPass, getEffectiveStatus, getDepartmentFromUsn, getStudentTotalMarks } from '../utils/statusHelper';
+import { isStudentPass, isSubjectPass, getEffectiveStatus, getDepartmentFromUsn, getStudentTotalMarks, sanitizeSubject } from '../utils/statusHelper';
+
+export function formatClearedDate(isoString?: string): string {
+  if (!isoString) return '';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return isoString;
+    return d.toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return isoString;
+  }
+}
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 
 interface StudentDetailModalProps {
@@ -36,7 +54,11 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   useEffect(() => {
     if (student) {
       // Deep copy to allow editing draft without mutating original state immediately
-      setFormData(JSON.parse(JSON.stringify(student)));
+      const copy: StudentRecord = JSON.parse(JSON.stringify(student));
+      if (copy.subjects && Array.isArray(copy.subjects)) {
+        copy.subjects = copy.subjects.map(sanitizeSubject);
+      }
+      setFormData(copy);
       setReanalyzeStatus(null);
       setIsReanalyzing(false);
       setExpandedSemId(student.id);
@@ -172,7 +194,8 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
           if (matchIdx !== -1) {
             const existing = updatedSubjects[matchIdx];
-            updatedSubjects[matchIdx] = {
+            const mergedSub: SubjectResult = sanitizeSubject({
+              ...existing,
               subjectCode: extCode || existing.subjectCode || '',
               subjectName: extName || existing.subjectName || '',
               internalMarks: extSub.internalMarks !== undefined && extSub.internalMarks !== '' ? extSub.internalMarks : existing.internalMarks || '',
@@ -181,9 +204,18 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
               result: extSub.result || existing.result || 'PASS',
               grade: extSub.grade || existing.grade,
               credits: extSub.credits || existing.credits,
-            };
+            });
+
+            const wasFailed = !isSubjectPass(existing);
+            const isNowPass = isSubjectPass(mergedSub);
+            if (wasFailed && isNowPass) {
+              mergedSub.clearedAt = existing.clearedAt || new Date().toISOString();
+              mergedSub.previousResult = existing.previousResult || existing.result || 'FAIL';
+            }
+
+            updatedSubjects[matchIdx] = mergedSub;
           } else {
-            updatedSubjects.push({
+            updatedSubjects.push(sanitizeSubject({
               subjectCode: extCode || '',
               subjectName: extName || 'Subject',
               internalMarks: extSub.internalMarks || '',
@@ -192,9 +224,11 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
               result: extSub.result || 'PASS',
               grade: extSub.grade,
               credits: extSub.credits,
-            });
+            }));
           }
         });
+
+        const sanitizedSubjects = updatedSubjects.map(sanitizeSubject);
 
         const tempDoc: StudentRecord = {
           ...formData,
@@ -203,7 +237,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
           college: mergedCollege,
           semester: mergedSemester,
           sgpa: mergedSgpa,
-          subjects: updatedSubjects,
+          subjects: sanitizedSubjects,
         };
 
         const finalStatus = getEffectiveStatus(tempDoc);
@@ -250,8 +284,31 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData) {
-      const finalStatus = getEffectiveStatus(formData);
-      onSave({ ...formData, status: finalStatus });
+      // Check for subjects edited from FAIL to PASS
+      const checkedSubjects = formData.subjects.map((sub) => {
+        // Find corresponding original subject
+        const origSub = student?.subjects?.find(
+          (s) =>
+            (s.subjectCode && sub.subjectCode && s.subjectCode.trim().toUpperCase() === sub.subjectCode.trim().toUpperCase()) ||
+            (s.subjectName && sub.subjectName && s.subjectName.trim().toLowerCase() === sub.subjectName.trim().toLowerCase())
+        );
+
+        const wasFailed = origSub ? !isSubjectPass(origSub) : false;
+        const isNowPass = isSubjectPass(sub);
+
+        if (wasFailed && isNowPass) {
+          return {
+            ...sub,
+            clearedAt: sub.clearedAt || new Date().toISOString(),
+            previousResult: sub.previousResult || origSub?.result || 'FAIL',
+          };
+        }
+        return sub;
+      });
+
+      const updatedDoc = { ...formData, subjects: checkedSubjects };
+      const finalStatus = getEffectiveStatus(updatedDoc);
+      onSave({ ...updatedDoc, status: finalStatus });
       onClose();
     }
   };
@@ -524,7 +581,8 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
                               {/* Subject Quick Badges */}
                               <div className="flex flex-wrap gap-1 pt-1">
-                                {rec.subjects?.map((sub, sIdx) => {
+                                {rec.subjects?.map((rawSub, sIdx) => {
+                                  const sub = sanitizeSubject(rawSub);
                                   const subPass = isSubjectPass(sub);
                                   return (
                                     <span
@@ -537,6 +595,14 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                                     >
                                       <span className="font-mono font-bold">{sub.subjectCode || 'SUB'}:</span>
                                       <span>{sub.totalMarks || sub.result}</span>
+                                      {sub.clearedAt && (
+                                        <span
+                                          className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-[#dc2626] text-white text-[9px] font-serif font-bold italic cursor-help ml-0.5 shrink-0 shadow-2xs"
+                                          title={`Updated/Cleared from ${sub.previousResult || 'FAIL'} to PASS on ${formatClearedDate(sub.clearedAt)}`}
+                                        >
+                                          i
+                                        </span>
+                                      )}
                                     </span>
                                   );
                                 })}
@@ -749,21 +815,31 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                             />
                           </td>
                           <td className="px-3 py-2">
-                            <input
-                              type="text"
-                              disabled={isLocked}
-                              value={sub.result || ''}
-                              onChange={(e) => handleSubjectChange(idx, 'result', e.target.value)}
-                              required
-                              placeholder="PASS / FAIL"
-                              className={`w-full px-2 py-1 rounded border font-bold focus:outline-none disabled:cursor-not-allowed ${
-                                (sub.result || '').toUpperCase().includes('PASS') || sub.result === 'P'
-                                  ? 'text-emerald-700 bg-emerald-50 border-emerald-200 disabled:bg-emerald-50/50'
-                                  : (sub.result || '').toUpperCase().includes('FAIL') || sub.result === 'F'
-                                  ? 'text-red-700 bg-red-50 border-red-200 disabled:bg-red-50/50'
-                                  : 'text-amber-700 bg-amber-50 border-amber-200 disabled:bg-amber-50/50'
-                              }`}
-                            />
+                            <div className="flex items-center space-x-1">
+                              <input
+                                type="text"
+                                disabled={isLocked}
+                                value={sub.result || ''}
+                                onChange={(e) => handleSubjectChange(idx, 'result', e.target.value)}
+                                required
+                                placeholder="PASS / FAIL"
+                                className={`w-full px-2 py-1 rounded border font-bold focus:outline-none disabled:cursor-not-allowed ${
+                                  (sub.result || '').toUpperCase().includes('PASS') || sub.result === 'P'
+                                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200 disabled:bg-emerald-50/50'
+                                    : (sub.result || '').toUpperCase().includes('FAIL') || sub.result === 'F'
+                                    ? 'text-red-700 bg-red-50 border-red-200 disabled:bg-red-50/50'
+                                    : 'text-amber-700 bg-amber-50 border-amber-200 disabled:bg-amber-50/50'
+                                }`}
+                              />
+                              {sub.clearedAt && (
+                                <span
+                                  className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#dc2626] text-white text-[10px] font-serif font-bold italic cursor-help shrink-0 shadow-2xs"
+                                  title={`Updated/Cleared from ${sub.previousResult || 'FAIL'} to PASS on ${formatClearedDate(sub.clearedAt)}`}
+                                >
+                                  i
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-3 py-2 text-center">
                             <label className={`inline-flex items-center justify-center ${isLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
