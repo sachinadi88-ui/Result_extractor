@@ -21,11 +21,13 @@ import {
   ChevronLeft,
   ChevronRight,
   MoveHorizontal,
-  Layers
+  Layers,
+  Award
 } from 'lucide-react';
 import { StudentRecord, SubjectResult } from '../types';
 import { isSubjectPass, isStudentPass, getEffectiveStatus, getStudentTotalMarks, sanitizeSubject } from '../utils/statusHelper';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
+import { SubjectCreditsModal } from './SubjectCreditsModal';
 
 function formatClearedDate(isoString?: string): string {
   if (!isoString) return '';
@@ -91,6 +93,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   const [sortField, setSortField] = useState<'usn' | 'name' | 'uploadedAt'>('usn');
   const [sortAsc, setSortAsc] = useState<boolean>(true);
   const [deletingStudent, setDeletingStudent] = useState<StudentRecord | null>(null);
+  const [isCreditsModalOpen, setIsCreditsModalOpen] = useState<boolean>(false);
 
   // Derive unique semesters present in records
   const availableSemesters = React.useMemo(() => {
@@ -328,6 +331,16 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
         {/* Filter & View Mode */}
         <div className="flex flex-wrap items-center gap-2">
           
+          {/* Subject Credits Button (Left side of semester dropdown / Right of search bar) */}
+          <button
+            onClick={() => setIsCreditsModalOpen(true)}
+            title="Configure Subject Credits for Semester"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-all duration-150 cursor-pointer active:scale-95 shrink-0"
+          >
+            <Award className="w-3.5 h-3.5 text-white" />
+            <span>Subject Credits</span>
+          </button>
+
           {/* Semester Filter */}
           <div className="flex items-center bg-red-50 px-2 py-1 rounded-lg border border-red-200 text-xs">
             <span className="text-red-600 font-bold text-[11px] mr-1.5 hidden sm:inline">Semester:</span>
@@ -370,63 +383,66 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             </button>
           )}
 
-          {/* Status Filter */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-medium">
-            <button
-              onClick={() => setStatusFilter('ALL')}
-              className={`px-3 py-1 rounded-md transition-all duration-150 active:scale-95 ${
-                statusFilter === 'ALL' ? 'bg-white text-slate-900 shadow-sm font-semibold scale-[1.02]' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setStatusFilter('PASS')}
-              className={`px-3 py-1 rounded-md transition-all duration-150 active:scale-95 ${
-                statusFilter === 'PASS' ? 'bg-emerald-600 text-white shadow-sm font-semibold scale-[1.02]' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Pass
-            </button>
-            <button
-              onClick={() => setStatusFilter('FAIL')}
-              className={`px-3 py-1 rounded-md transition-all duration-150 active:scale-95 ${
-                statusFilter === 'FAIL' ? 'bg-red-600 text-white shadow-sm font-semibold scale-[1.02]' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Fail
-            </button>
-          </div>
+          {/* Combined Filters & View Mode Row */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            {/* Status Filter (All, Pass, Fail) */}
+            <div className="flex items-center bg-slate-100 p-0.5 sm:p-1 rounded-lg border border-slate-200 text-xs font-medium">
+              <button
+                onClick={() => setStatusFilter('ALL')}
+                className={`px-2.5 sm:px-3 py-1 rounded-md text-[11px] sm:text-xs transition-all duration-150 active:scale-95 ${
+                  statusFilter === 'ALL' ? 'bg-white text-slate-900 shadow-sm font-semibold scale-[1.02]' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setStatusFilter('PASS')}
+                className={`px-2.5 sm:px-3 py-1 rounded-md text-[11px] sm:text-xs transition-all duration-150 active:scale-95 ${
+                  statusFilter === 'PASS' ? 'bg-emerald-600 text-white shadow-sm font-semibold scale-[1.02]' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Pass
+              </button>
+              <button
+                onClick={() => setStatusFilter('FAIL')}
+                className={`px-2.5 sm:px-3 py-1 rounded-md text-[11px] sm:text-xs transition-all duration-150 active:scale-95 ${
+                  statusFilter === 'FAIL' ? 'bg-red-600 text-white shadow-sm font-semibold scale-[1.02]' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Fail
+              </button>
+            </div>
 
-          {/* View Toggles */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs">
-            <button
-              onClick={() => setViewMode('matrix')}
-              title="Expanded Subject Columns Matrix"
-              className={`p-1.5 rounded-md transition-all duration-150 active:scale-90 ${
-                viewMode === 'matrix' ? 'bg-white text-emerald-600 shadow-sm scale-105' : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <TableIcon className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('row-summary')}
-              title="Standard Single Row Table View"
-              className={`p-1.5 rounded-md transition-all duration-150 active:scale-90 ${
-                viewMode === 'row-summary' ? 'bg-white text-emerald-600 shadow-sm scale-105' : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <LayoutList className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('cards')}
-              title="Card View"
-              className={`p-1.5 rounded-md transition-all duration-150 active:scale-90 ${
-                viewMode === 'cards' ? 'bg-white text-emerald-600 shadow-sm scale-105' : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Grid className="w-4 h-4" />
-            </button>
+            {/* View Toggles (Matrix, Row-Summary, Cards) placed right beside All/Pass/Fail buttons */}
+            <div className="flex items-center bg-slate-100/90 p-0.5 sm:p-1 rounded-lg border border-slate-200/90 text-xs shadow-2xs">
+              <button
+                onClick={() => setViewMode('matrix')}
+                title="Expanded Subject Columns Matrix (Table View)"
+                className={`p-1.5 rounded-md transition-all duration-150 active:scale-90 ${
+                  viewMode === 'matrix' ? 'bg-white text-emerald-600 shadow-sm scale-105 font-bold' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <TableIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('row-summary')}
+                title="Standard Single Row Table View (Column/Row View)"
+                className={`p-1.5 rounded-md transition-all duration-150 active:scale-90 ${
+                  viewMode === 'row-summary' ? 'bg-white text-emerald-600 shadow-sm scale-105 font-bold' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <LayoutList className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('cards')}
+                title="Grid / Card View"
+                className={`p-1.5 rounded-md transition-all duration-150 active:scale-90 ${
+                  viewMode === 'cards' ? 'bg-white text-emerald-600 shadow-sm scale-105 font-bold' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Grid className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+            </div>
           </div>
 
         </div>
@@ -1050,6 +1066,21 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
           }
         }}
         onCancel={() => setDeletingStudent(null)}
+      />
+
+      {/* Subject Credits Entry Modal */}
+      <SubjectCreditsModal
+        isOpen={isCreditsModalOpen}
+        onClose={() => setIsCreditsModalOpen(false)}
+        records={records}
+        selectedSemester={semesterFilter}
+        onSaveCredits={async (updatedRecords) => {
+          if (onUpdateRecords) {
+            await onUpdateRecords(updatedRecords);
+          }
+        }}
+        isLocked={isLocked}
+        onRequestUnlock={onRequestUnlock}
       />
 
     </div>

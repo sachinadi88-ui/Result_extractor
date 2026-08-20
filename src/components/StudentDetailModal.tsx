@@ -755,6 +755,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                         <th className="px-3 py-2 w-20">Internal</th>
                         <th className="px-3 py-2 w-20">External</th>
                         <th className="px-3 py-2 w-20">Total</th>
+                        <th className="px-3 py-2 w-16 text-center">Credits</th>
                         <th className="px-3 py-2 w-24">Result</th>
                         <th className="px-3 py-2 w-20 text-center" title="Exclude subject marks from Total calculation">Non-Credit</th>
                         {!isLocked && <th className="px-3 py-2 w-10 text-center">Action</th>}
@@ -812,6 +813,16 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                               onChange={(e) => handleSubjectChange(idx, 'totalMarks', e.target.value)}
                               placeholder="Total"
                               className="w-full px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-800 font-mono font-bold focus:border-emerald-600 focus:bg-white focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="text"
+                              disabled={isLocked}
+                              value={sub.credits || ''}
+                              onChange={(e) => handleSubjectChange(idx, 'credits', e.target.value)}
+                              placeholder="Cr"
+                              className="w-full px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-800 font-mono font-semibold text-center focus:border-emerald-600 focus:bg-white focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                             />
                           </td>
                           <td className="px-3 py-2">

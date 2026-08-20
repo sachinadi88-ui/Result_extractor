@@ -787,23 +787,6 @@ export async function exportToPDFLandscape(rawRecords: StudentRecord[]): Promise
   const semSuffix = semesterDisplay ? `   •   Sem : ${semesterDisplay}` : '';
   doc.text(`Result Analysis${semSuffix}   •   Total Enrolled: ${records.length}   |   Passed: ${totalPass}   |   Pass Percentage: ${passPercentage}%`, 18, headerStartY + 27.5);
 
-  // Global subject list for footer legends
-  const globalSubjectsMap = new Map<string, { code: string; name: string; isNonCredit: boolean }>();
-  records.forEach((student) => {
-    student.subjects?.forEach((sub) => {
-      const code = (sub.subjectCode || '').trim();
-      const name = (sub.subjectName || '').trim();
-      if (!code && !name) return;
-      const key = code ? code.toUpperCase() : name.toLowerCase();
-      if (!globalSubjectsMap.has(key)) {
-        globalSubjectsMap.set(key, { code, name, isNonCredit: !!sub.isNonCredit });
-      } else if (sub.isNonCredit) {
-        globalSubjectsMap.get(key)!.isNonCredit = true;
-      }
-    });
-  });
-  const globalSubjectsList = Array.from(globalSubjectsMap.values());
-
   let currentY = headerStartY + 33;
 
   // --- SEMESTER-WISE SECTIONS ---
@@ -942,9 +925,31 @@ export async function exportToPDFLandscape(rawRecords: StudentRecord[]): Promise
           if (data.column.index >= 3 && data.column.index <= headers.length - 3) {
             data.cell.styles.halign = 'center';
             const subIndex = data.column.index - 3;
-            if (semSubjectsList[subIndex]?.isNonCredit) {
-              data.cell.styles.fillColor = [241, 245, 249];
-              data.cell.styles.textColor = [51, 65, 85];
+            const uniqueSub = semSubjectsList[subIndex];
+            const currentStudent = sortedSemRecords[data.row.index];
+
+            if (currentStudent && uniqueSub) {
+              const studentSub = currentStudent.subjects?.find((s) => {
+                const sCode = (s.subjectCode || '').trim().toUpperCase();
+                const sName = (s.subjectName || '').trim().toUpperCase();
+                return (uniqueSub.code && sCode === uniqueSub.code.toUpperCase()) || sName === uniqueSub.name.toUpperCase();
+              });
+
+              if (studentSub) {
+                const isPass = isSubjectPass(studentSub);
+                if (!isPass) {
+                  // Failed in this particular subject -> highlight with light red background and dark red text
+                  data.cell.styles.fillColor = [254, 226, 226]; // Light red (#FEE2E2 / Red-100)
+                  data.cell.styles.textColor = [185, 28, 28]; // Dark red (#B91C1C / Red-700)
+                  data.cell.styles.fontStyle = 'bold';
+                } else if (uniqueSub.isNonCredit) {
+                  data.cell.styles.fillColor = [241, 245, 249];
+                  data.cell.styles.textColor = [51, 65, 85];
+                }
+              } else if (uniqueSub.isNonCredit) {
+                data.cell.styles.fillColor = [241, 245, 249];
+                data.cell.styles.textColor = [51, 65, 85];
+              }
             }
           }
         }
@@ -1052,12 +1057,20 @@ export async function exportToPDFLandscape(rawRecords: StudentRecord[]): Promise
     }
 
     // 3) SEMESTER SUBJECT-WISE PASS RATE & STATISTICS
+    let localSavedFaculty: { [key: string]: string } = {};
+    try {
+      const storedF = localStorage.getItem('smvcer_faculty_mapping');
+      if (storedF) localSavedFaculty = JSON.parse(storedF);
+    } catch (e) {}
+
     const statsMap = new Map<string, {
       subjectCode: string;
       subjectName: string;
+      staffName: string;
       totalStudents: number;
       totalPass: number;
       totalFail: number;
+      isNonCredit: boolean;
     }>();
 
     semRecords.forEach((student) => {
@@ -1066,6 +1079,8 @@ export async function exportToPDFLandscape(rawRecords: StudentRecord[]): Promise
           if (!sub || !sub.subjectName) return;
           const code = (sub.subjectCode || '').trim();
           const name = (sub.subjectName || '').trim();
+          const subKey = code ? code.toUpperCase() : name.toLowerCase();
+          const faculty = (sub.facultyName || localSavedFaculty[subKey] || '').trim();
           const key = code ? `${code.toUpperCase()}::${name.toUpperCase()}` : name.toUpperCase();
 
           const isPass = isSubjectPass(sub);
@@ -1074,10 +1089,20 @@ export async function exportToPDFLandscape(rawRecords: StudentRecord[]): Promise
             statsMap.set(key, {
               subjectCode: code,
               subjectName: name,
+              staffName: faculty,
               totalStudents: 0,
               totalPass: 0,
               totalFail: 0,
+              isNonCredit: !!sub.isNonCredit,
             });
+          } else {
+            const current = statsMap.get(key)!;
+            if (faculty && !current.staffName) {
+              current.staffName = faculty;
+            }
+            if (sub.isNonCredit) {
+              current.isNonCredit = true;
+            }
           }
 
           const current = statsMap.get(key)!;
@@ -1118,7 +1143,8 @@ export async function exportToPDFLandscape(rawRecords: StudentRecord[]): Promise
       const subjectStatsRows = subjectStatsList.map((stat, idx) => [
         idx + 1,
         stat.subjectCode || '-',
-        stat.subjectName || '-',
+        stat.isNonCredit ? `${stat.subjectName} * (Non-Credit)` : (stat.subjectName || '-'),
+        stat.staffName || '-',
         stat.totalStudents,
         stat.totalPass,
         stat.totalFail,
@@ -1127,8 +1153,8 @@ export async function exportToPDFLandscape(rawRecords: StudentRecord[]): Promise
 
       autoTable(doc, {
         startY: afterTableY + 3,
-        margin: { left: 15, right: 15, bottom: 25 },
-        head: [['S.No.', 'Subject Code', 'Subject Name', 'Appeared', 'Passed', 'Failed', 'Pass Rate']],
+        margin: { left: 15, right: 15, bottom: 20 },
+        head: [['S.No.', 'Subject Code', 'Subject Name', 'Staff Handling', 'Appeared', 'Passed', 'Failed', 'Pass Rate']],
         body: subjectStatsRows,
         theme: 'grid',
         headStyles: {
@@ -1143,21 +1169,28 @@ export async function exportToPDFLandscape(rawRecords: StudentRecord[]): Promise
           valign: 'middle',
         },
         columnStyles: {
-          0: { cellWidth: 15, halign: 'center' },
-          1: { cellWidth: 35, fontStyle: 'bold' },
-          2: { cellWidth: 105 },
-          3: { cellWidth: 25, halign: 'center' },
-          4: { cellWidth: 25, halign: 'center', textColor: [5, 122, 85] },
-          5: { cellWidth: 25, halign: 'center', textColor: [185, 28, 28] },
-          6: { cellWidth: 25, halign: 'center', fontStyle: 'bold' },
+          0: { cellWidth: 12, halign: 'center' },
+          1: { cellWidth: 28, fontStyle: 'bold' },
+          2: { cellWidth: 75 },
+          3: { cellWidth: 62, fontStyle: 'bold', textColor: [30, 41, 59] },
+          4: { cellWidth: 22, halign: 'center' },
+          5: { cellWidth: 22, halign: 'center', textColor: [5, 122, 85] },
+          6: { cellWidth: 22, halign: 'center', textColor: [185, 28, 28] },
+          7: { cellWidth: 24, halign: 'center', fontStyle: 'bold' },
         },
         didParseCell: (data) => {
-          if (data.section === 'body' && data.column.index === 6) {
-            const pct = parseFloat(String(data.cell.raw).replace('%', ''));
-            if (pct >= 75) {
-              data.cell.styles.textColor = [5, 122, 85];
-            } else if (pct < 50) {
-              data.cell.styles.textColor = [185, 28, 28];
+          if (data.section === 'body') {
+            const stat = subjectStatsList[data.row.index];
+            if (stat?.isNonCredit) {
+              data.cell.styles.fillColor = [241, 245, 249];
+            }
+            if (data.column.index === 7) {
+              const pct = parseFloat(String(data.cell.raw).replace('%', ''));
+              if (pct >= 75) {
+                data.cell.styles.textColor = [5, 122, 85];
+              } else if (pct < 50) {
+                data.cell.styles.textColor = [185, 28, 28];
+              }
             }
           }
         },
@@ -1186,15 +1219,9 @@ export async function exportToPDFLandscape(rawRecords: StudentRecord[]): Promise
   doc.text('HOD', 15, sigY);
   doc.text('PRINCIPAL', 282, sigY, { align: 'right' });
 
-  // Footer / Page numbers / Legend helper
+  // Footer / Page numbers helper
   const totalPages = (doc as any).internal.getNumberOfPages();
   const pageHeight = doc.internal.pageSize.height; // 210 for landscape
-  
-  const hasNC = globalSubjectsList.some(sub => sub.isNonCredit);
-  const legends = globalSubjectsList
-    .filter(sub => sub.code)
-    .map(sub => sub.isNonCredit ? `${sub.code}* (Non-Credit): ${sub.name}` : `${sub.code}: ${sub.name}`)
-    .join('  |  ');
 
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
@@ -1202,17 +1229,9 @@ export async function exportToPDFLandscape(rawRecords: StudentRecord[]): Promise
     // Draw thin separator line above footer area
     doc.setDrawColor(226, 232, 240); // Slate 200
     doc.setLineWidth(0.3);
-    doc.line(15, pageHeight - 20, 282, pageHeight - 20);
+    doc.line(15, pageHeight - 12, 282, pageHeight - 12);
 
     doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(6.5);
-    doc.setTextColor(100, 116, 139); // Slate 500
-    
-    if (legends) {
-      const ncNote = hasNC ? '  [* Non-Credit Subject - Excluded from Total Marks]' : '';
-      doc.text(`Subject Legend:  ${legends}${ncNote}`, 15, pageHeight - 16, { maxWidth: 267 });
-    }
-
     doc.setFontSize(7.5);
     doc.setTextColor(148, 163, 184); // Slate 400
     doc.text('Detailed Academic Register (Landscape)', 15, pageHeight - 5);
