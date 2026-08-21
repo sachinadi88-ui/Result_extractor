@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, FileSpreadsheet, FileText, Download, Table2, Layers } from 'lucide-react';
+import { X, FileSpreadsheet, FileText, Download, Table2, Layers, Award } from 'lucide-react';
 import { StudentRecord } from '../types';
 import { filterRecordsBySemester, getAvailableSemesters } from '../utils/statusHelper';
 
@@ -9,6 +9,7 @@ interface ExportFormatModalProps {
   onExportExcel: (overrideSemester?: string) => void;
   onExportPDF: (overrideSemester?: string) => void;
   onExportPDFLandscape: (overrideSemester?: string) => void;
+  onExportPDFCreditsLandscape: (overrideSemester?: string) => void;
   selectedSemester?: string;
   onSemesterChange?: (sem: string) => void;
   records?: StudentRecord[];
@@ -20,6 +21,7 @@ export const ExportFormatModal: React.FC<ExportFormatModalProps> = ({
   onExportExcel,
   onExportPDF,
   onExportPDFLandscape,
+  onExportPDFCreditsLandscape,
   selectedSemester = 'ALL',
   onSemesterChange,
   records = [],
@@ -142,7 +144,7 @@ export const ExportFormatModal: React.FC<ExportFormatModalProps> = ({
               </div>
             </button>
 
-            {/* PDF Export Card (Landscape) */}
+            {/* PDF Detailed Register (Landscape) */}
             <button
               onClick={() => {
                 onExportPDFLandscape(selectedSemester);
@@ -158,7 +160,28 @@ export const ExportFormatModal: React.FC<ExportFormatModalProps> = ({
                   PDF Detailed Register (Landscape)
                 </h4>
                 <p className="text-[10px] sm:text-[11px] text-slate-500 leading-relaxed">
-                  Detailed wide register with all subject breakdown for {selectedSemester === 'ALL' ? 'all semesters' : `Semester ${selectedSemester}`}.
+                  Detailed wide register with all subject marks breakdown for {selectedSemester === 'ALL' ? 'all semesters' : `Semester ${selectedSemester}`}.
+                </p>
+              </div>
+            </button>
+
+            {/* PDF Credits Register (Landscape) */}
+            <button
+              onClick={() => {
+                onExportPDFCreditsLandscape(selectedSemester);
+                onClose();
+              }}
+              className="w-full text-left flex items-start space-x-3 sm:space-x-4 p-3 sm:p-4 rounded-xl border border-slate-200 hover:border-violet-500 bg-white hover:bg-violet-50/20 transition-all cursor-pointer group"
+            >
+              <div className="p-2.5 sm:p-3 rounded-xl bg-violet-50 text-violet-600 border border-violet-100 group-hover:bg-violet-100 transition-colors shrink-0">
+                <Award className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+              <div className="space-y-0.5 sm:space-y-1 min-w-0">
+                <h4 className="text-xs sm:text-sm font-bold text-slate-800 group-hover:text-violet-700 transition-colors leading-tight flex items-center gap-1.5">
+                  <span>PDF Credits Register (Landscape)</span>
+                </h4>
+                <p className="text-[10px] sm:text-[11px] text-slate-500 leading-relaxed">
+                  Wide register with subject credits earned (0 credits & red highlight for failed subjects) for {selectedSemester === 'ALL' ? 'all semesters' : `Semester ${selectedSemester}`}.
                 </p>
               </div>
             </button>

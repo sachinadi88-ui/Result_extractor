@@ -45,6 +45,7 @@ interface NewViewProps {
   onBackToMain: () => void;
   onExportPDF?: () => void;
   onExportPDFLandscape?: () => void;
+  onExportPDFCreditsLandscape?: () => void;
   onExportExcel?: () => void;
   onSelectStudent?: (student: StudentRecord) => void;
 }
@@ -54,6 +55,7 @@ export const NewView: React.FC<NewViewProps> = ({
   onBackToMain,
   onExportPDF,
   onExportPDFLandscape,
+  onExportPDFCreditsLandscape,
   onExportExcel,
   onSelectStudent,
 }) => {
@@ -248,6 +250,16 @@ export const NewView: React.FC<NewViewProps> = ({
             >
               <FileText className="w-3.5 h-3.5 text-indigo-400" />
               <span>Landscape PDF</span>
+            </button>
+          )}
+
+          {onExportPDFCreditsLandscape && (
+            <button
+              onClick={() => onExportPDFCreditsLandscape()}
+              className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
+            >
+              <Award className="w-3.5 h-3.5 text-violet-400" />
+              <span>Credits PDF</span>
             </button>
           )}
 

@@ -14,6 +14,7 @@ interface HeaderProps {
   onExportExcel: (overrideSemester?: string) => void;
   onExportPDF: (overrideSemester?: string) => void;
   onExportPDFLandscape: (overrideSemester?: string) => void;
+  onExportPDFCreditsLandscape?: (overrideSemester?: string) => void;
   onSaveToDatabase: () => void;
   onReloadDatabase: () => void;
   onClearAll: () => void;
@@ -38,6 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
   onExportExcel,
   onExportPDF,
   onExportPDFLandscape,
+  onExportPDFCreditsLandscape = () => {},
   onSaveToDatabase,
   onReloadDatabase,
   onClearAll,
@@ -352,6 +354,7 @@ export const Header: React.FC<HeaderProps> = ({
       onExportExcel={onExportExcel}
       onExportPDF={onExportPDF}
       onExportPDFLandscape={onExportPDFLandscape}
+      onExportPDFCreditsLandscape={onExportPDFCreditsLandscape}
       selectedSemester={selectedSemester}
       onSemesterChange={onSemesterChange}
       records={records}

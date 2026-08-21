@@ -3,65 +3,145 @@ import autoTable from 'jspdf-autotable';
 import { StudentRecord } from '../types';
 import { getEffectiveStatus, getStudentTotalMarks, getStudentCreditsSummary, isStudentPass, isSubjectPass, getDepartmentFromUsn, sanitizeRecord, cleanMarkVal } from './statusHelper';
 
-// Helper to convert the college logo crest to a base64 string for embedding
-function getLogoDataUrl(): Promise<string | null> {
-  return new Promise((resolve) => {
-    let resolved = false;
-    const finish = (val: string | null) => {
-      if (!resolved) {
-        resolved = true;
-        resolve(val);
+// Cached base64 logo string in memory so it only ever needs to load once
+let cachedLogoDataUrl: string | null = null;
+
+// Helper to convert a blob to base64 Data URL
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error('FileReader did not return a string'));
       }
     };
-
-    const timer = setTimeout(() => finish(null), 1500);
-
-    const img = new Image();
-    img.src = '/PDFlogo.jpg';
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      clearTimeout(timer);
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          finish(canvas.toDataURL('image/jpeg'));
-          return;
-        }
-      } catch (e) {
-        console.error('Failed to convert logo to data url:', e);
-      }
-      finish(null);
-    };
-    img.onerror = () => {
-      // Fallback to /smvcer_crest.jpg if /PDFlogo.jpg fails
-      const fallback = new Image();
-      fallback.src = '/smvcer_crest.jpg';
-      fallback.crossOrigin = 'anonymous';
-      fallback.onload = () => {
-        clearTimeout(timer);
-        try {
-          const canvas = document.createElement('canvas');
-          canvas.width = fallback.width;
-          canvas.height = fallback.height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(fallback, 0, 0);
-            finish(canvas.toDataURL('image/jpeg'));
-            return;
-          }
-        } catch (e) {}
-        finish(null);
-      };
-      fallback.onerror = () => {
-        clearTimeout(timer);
-        finish(null);
-      };
-    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
   });
+}
+
+// Helper to convert the college logo crest to a base64 string for embedding in PDFs
+export async function getLogoDataUrl(): Promise<string | null> {
+  if (cachedLogoDataUrl) {
+    return cachedLogoDataUrl;
+  }
+
+  // Strategy 1: Fetch /PDFlogo.jpg directly as blob (no canvas taint, no CORS issues)
+  try {
+    const response = await fetch('/PDFlogo.jpg');
+    if (response.ok) {
+      const blob = await response.blob();
+      if (blob && blob.size > 0) {
+        const dataUrl = await blobToDataUrl(blob);
+        cachedLogoDataUrl = dataUrl;
+        return dataUrl;
+      }
+    }
+  } catch (e) {
+    console.warn('Fetch /PDFlogo.jpg failed, trying fallback:', e);
+  }
+
+  // Strategy 2: Fetch /smvcer_crest.jpg as fallback
+  try {
+    const response = await fetch('/smvcer_crest.jpg');
+    if (response.ok) {
+      const blob = await response.blob();
+      if (blob && blob.size > 0) {
+        const dataUrl = await blobToDataUrl(blob);
+        cachedLogoDataUrl = dataUrl;
+        return dataUrl;
+      }
+    }
+  } catch (e) {
+    console.warn('Fetch /smvcer_crest.jpg failed, trying canvas loader:', e);
+  }
+
+  // Strategy 3: Image element + Canvas fallback
+  try {
+    const dataUrl = await new Promise<string | null>((resolve) => {
+      let done = false;
+      const finish = (res: string | null) => {
+        if (!done) {
+          done = true;
+          resolve(res);
+        }
+      };
+
+      const timer = setTimeout(() => finish(null), 3000);
+
+      const tryLoadImage = (src: string, nextFallback?: string) => {
+        const img = new Image();
+        img.onload = () => {
+          clearTimeout(timer);
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || img.width || 120;
+            canvas.height = img.naturalHeight || img.height || 140;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0);
+              finish(canvas.toDataURL('image/jpeg', 0.95));
+              return;
+            }
+          } catch (err) {
+            console.error('Canvas conversion error:', err);
+          }
+          if (nextFallback) {
+            tryLoadImage(nextFallback);
+          } else {
+            finish(null);
+          }
+        };
+
+        img.onerror = () => {
+          if (nextFallback) {
+            tryLoadImage(nextFallback);
+          } else {
+            clearTimeout(timer);
+            finish(null);
+          }
+        };
+
+        img.src = src;
+
+        // In case image is already complete in cache
+        if (img.complete && img.naturalWidth > 0) {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              clearTimeout(timer);
+              ctx.drawImage(img, 0, 0);
+              finish(canvas.toDataURL('image/jpeg', 0.95));
+              return;
+            }
+          } catch (e) {}
+        }
+      };
+
+      tryLoadImage('/PDFlogo.jpg', '/smvcer_crest.jpg');
+    });
+
+    if (dataUrl) {
+      cachedLogoDataUrl = dataUrl;
+      return dataUrl;
+    }
+  } catch (e) {
+    console.error('Failed all logo loading strategies:', e);
+  }
+
+  return null;
+}
+
+// Pre-warm the logo cache immediately on script execution
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    getLogoDataUrl().catch(() => {});
+  }, 100);
 }
 
 export async function exportToPDF(rawRecords: StudentRecord[]): Promise<void> {
@@ -1261,5 +1341,659 @@ export async function exportToPDFLandscape(rawRecords: StudentRecord[]): Promise
   const deptPart = departmentShortName || 'DEPT';
   const semPart = uniqueSemesters.length > 0 ? uniqueSemesters.join('_') : 'ALL';
   const filename = `SMVCER_${deptPart}_Sem_${semPart}_detailed_result_analysis.pdf`;
+  doc.save(filename);
+}
+
+export async function exportToPDFCreditsLandscape(rawRecords: StudentRecord[]): Promise<void> {
+  if (!rawRecords || rawRecords.length === 0) return;
+  const records = rawRecords.map(sanitizeRecord);
+
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const totalPass = records.filter((r) => isStudentPass(r)).length;
+  const passPercentage = records.length > 0 ? Math.round((totalPass / records.length) * 1000) / 10 : 0;
+
+  // Try to load college logo
+  const logoUrl = await getLogoDataUrl();
+
+  const societyName = "HKE Society's";
+  const collegeName = "Sir M. Visvesvaraya College of Engineering, Raichur";
+  
+  // Find the department long name based on records
+  let departmentLongName = '';
+  for (const rec of records) {
+    const dept = getDepartmentFromUsn(rec.usn);
+    if (dept) {
+      departmentLongName = dept.long;
+      break;
+    }
+  }
+  const examName = departmentLongName || records[0]?.examination || 'ACADEMIC EXAMINATION REPORT';
+
+  // --- HEADER SECTION (LANDSCAPE) ---
+  let headerStartY = 10;
+  if (logoUrl) {
+    doc.addImage(logoUrl, 'JPEG', 15, headerStartY, 14, 16);
+    
+    // HKE Society's (top, small)
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139); // Slate 500
+    doc.text(societyName, 32, headerStartY + 3);
+    
+    // Sir M. Visvesvaraya College of Engineering, Raichur (below it, larger)
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(11.5);
+    doc.setTextColor(30, 41, 59); // Slate 800
+    doc.text(collegeName, 32, headerStartY + 8, { maxWidth: 225 });
+    
+    // Examination name (Department Long Name)
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(30, 41, 59); // Slate 800
+    doc.text(examName, 32, headerStartY + 13, { maxWidth: 225 });
+
+    doc.setFontSize(7.5);
+    doc.setFont('Helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}  •  Credits Breakdown Report`, 32, headerStartY + 17);
+  } else {
+    // HKE Society's
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text(societyName, 15, headerStartY + 3);
+
+    // College name
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(30, 41, 59);
+    doc.text(collegeName, 15, headerStartY + 8, { maxWidth: 260 });
+    
+    // Examination name
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(11.5);
+    doc.setTextColor(30, 41, 59);
+    doc.text(examName, 15, headerStartY + 13, { maxWidth: 260 });
+
+    doc.setFontSize(7.5);
+    doc.setFont('Helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}  •  Credits Breakdown Report`, 15, headerStartY + 17);
+  }
+
+  // Draw thin header divider line
+  doc.setDrawColor(226, 232, 240); // Slate 200
+  doc.setLineWidth(0.4);
+  doc.line(15, headerStartY + 20, 282, headerStartY + 20);
+
+  // --- COMPACT COLLEGE CREDITS PERFORMANCE SUMMARY ---
+  doc.setFillColor(248, 250, 252); // Slate 50 background
+  doc.setDrawColor(226, 232, 240); // Slate 200 border
+  doc.roundedRect(15, headerStartY + 23, 267, 7, 1, 1, 'FD');
+  doc.setFont('Helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(71, 85, 105); // Slate 600
+
+  // Group records by semester
+  const semesterGroupsMap = new Map<string, StudentRecord[]>();
+  records.forEach((rec) => {
+    const sem = rec.semester ? String(rec.semester).replace(/^sem\s*/i, '').trim() : 'Unassigned';
+    if (!semesterGroupsMap.has(sem)) {
+      semesterGroupsMap.set(sem, []);
+    }
+    semesterGroupsMap.get(sem)!.push(rec);
+  });
+
+  const sortedSemKeys = Array.from(semesterGroupsMap.keys()).sort((a, b) => {
+    if (a === 'Unassigned') return 1;
+    if (b === 'Unassigned') return -1;
+    return a.localeCompare(b, undefined, { numeric: true });
+  });
+
+  const uniqueSemesters = sortedSemKeys.filter((s) => s !== 'Unassigned');
+
+  let semesterDisplay = '';
+  if (uniqueSemesters.length === 1) {
+    semesterDisplay = uniqueSemesters[0];
+  } else if (uniqueSemesters.length > 1) {
+    semesterDisplay = uniqueSemesters.join(', ');
+  }
+
+  const semSuffix = semesterDisplay ? `   •   Sem : ${semesterDisplay}` : '';
+  doc.text(`Credits Register Analysis${semSuffix}   •   Total Enrolled: ${records.length}   |   Passed: ${totalPass}   |   Pass Percentage: ${passPercentage}%`, 18, headerStartY + 27.5);
+
+  let currentY = headerStartY + 33;
+
+  // Load custom local credit mapping if saved
+  let localCreditsMap: { [key: string]: string } = {};
+  try {
+    const stored = localStorage.getItem('smvcer_credits_mapping');
+    if (stored) localCreditsMap = JSON.parse(stored);
+  } catch (e) {}
+
+  // --- SEMESTER-WISE SECTIONS ---
+  sortedSemKeys.forEach((semKey) => {
+    const semRecords = semesterGroupsMap.get(semKey) || [];
+    if (semRecords.length === 0) return;
+
+    const semPassCount = semRecords.filter((r) => isStudentPass(r)).length;
+    const semPassPct = semRecords.length > 0 ? Math.round((semPassCount / semRecords.length) * 1000) / 10 : 0;
+
+    if (currentY > 150) {
+      doc.addPage();
+      currentY = 20;
+    }
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(15, 23, 42); // Slate 900
+    const semSectionTitle = sortedSemKeys.length > 1
+      ? (semKey !== 'Unassigned'
+          ? `SEMESTER ${semKey} — STUDENT CREDITS EARNED REGISTER (Enrolled: ${semRecords.length} | Passed: ${semPassCount} | Pass Rate: ${semPassPct}%)`
+          : 'UNASSIGNED SEMESTER — STUDENT CREDITS EARNED REGISTER')
+      : 'DETAILED STUDENT CREDITS EARNED REGISTER';
+    doc.text(semSectionTitle, 15, currentY);
+
+    // 1) SEMESTER SUBJECT CREDITS TABLE
+    const semSubjectsMap = new Map<string, { code: string; name: string; isNonCredit: boolean; defaultCredit: string }>();
+    semRecords.forEach((student) => {
+      student.subjects?.forEach((sub) => {
+        const code = (sub.subjectCode || '').trim();
+        const name = (sub.subjectName || '').trim();
+        if (!code && !name) return;
+
+        const subKey = code ? code.toUpperCase() : name.toLowerCase();
+        const creditVal = (sub.credits !== undefined && sub.credits !== null && String(sub.credits).trim() !== '')
+          ? String(sub.credits).trim()
+          : (localCreditsMap[subKey] || '');
+
+        if (!semSubjectsMap.has(subKey)) {
+          semSubjectsMap.set(subKey, { code, name, isNonCredit: !!sub.isNonCredit, defaultCredit: creditVal });
+        } else {
+          const existing = semSubjectsMap.get(subKey)!;
+          if (sub.isNonCredit) existing.isNonCredit = true;
+          if (!existing.defaultCredit && creditVal) existing.defaultCredit = creditVal;
+        }
+      });
+    });
+
+    const semSubjectsList = Array.from(semSubjectsMap.entries()).map(([key, value]) => ({
+      key,
+      code: value.code,
+      name: value.name,
+      isNonCredit: value.isNonCredit,
+      defaultCredit: value.defaultCredit,
+    }));
+
+    const subjectHeaders = semSubjectsList.map((sub) => {
+      const raw = sub.code || (sub.name.length > 15 ? sub.name.substring(0, 12) + '..' : sub.name);
+      return sub.isNonCredit ? `${raw}*` : raw;
+    });
+
+    const headers = [
+      'S.No.',
+      'USN',
+      'Student Name',
+      ...subjectHeaders,
+      'Earned Cr',
+      'Total Cr',
+      'Status',
+    ];
+
+    const sortedSemRecords = [...semRecords].sort((a, b) => {
+      const usnA = (a.usn || '').trim().toUpperCase();
+      const usnB = (b.usn || '').trim().toUpperCase();
+      return usnA.localeCompare(usnB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    const rowData = sortedSemRecords.map((rec, idx) => {
+      const statusVal = getEffectiveStatus(rec);
+      const creditsSummary = getStudentCreditsSummary(rec);
+
+      const studentRow = [
+        idx + 1,
+        rec.usn || '-',
+        rec.name || '-',
+      ];
+
+      semSubjectsList.forEach((uniqueSub) => {
+        const studentSub = rec.subjects?.find((s) => {
+          const sCode = (s.subjectCode || '').trim().toUpperCase();
+          const sName = (s.subjectName || '').trim().toUpperCase();
+          return (uniqueSub.code && sCode === uniqueSub.code.toUpperCase()) || sName === uniqueSub.name.toUpperCase();
+        });
+
+        if (!studentSub) {
+          studentRow.push('-');
+          return;
+        }
+
+        if (studentSub.isNonCredit || uniqueSub.isNonCredit) {
+          if (isSubjectPass(studentSub)) {
+            studentRow.push('NC');
+          } else {
+            studentRow.push('0');
+          }
+          return;
+        }
+
+        const isPass = isSubjectPass(studentSub);
+        if (!isPass) {
+          // Failed subject earns 0 credits
+          studentRow.push('0');
+        } else {
+          // Passed subject earns full credits for that subject
+          const code = (studentSub.subjectCode || '').trim().toUpperCase();
+          const name = (studentSub.subjectName || '').trim().toLowerCase();
+          const subKey = code || name;
+          const credStr = (studentSub.credits !== undefined && studentSub.credits !== null && String(studentSub.credits).trim() !== '')
+            ? String(studentSub.credits).trim()
+            : (localCreditsMap[subKey] || uniqueSub.defaultCredit || '');
+
+          const credNum = parseFloat(credStr);
+          if (!isNaN(credNum) && credNum > 0) {
+            studentRow.push(String(credNum));
+          } else if (credStr) {
+            studentRow.push(credStr);
+          } else {
+            studentRow.push('-');
+          }
+        }
+      });
+
+      studentRow.push(creditsSummary.hasCredits ? String(creditsSummary.earnedCredits) : '-');
+      studentRow.push(creditsSummary.hasCredits ? String(creditsSummary.totalCredits) : '-');
+      studentRow.push(statusVal);
+
+      return studentRow;
+    });
+
+    autoTable(doc, {
+      startY: currentY + 3,
+      margin: { left: 15, right: 15, bottom: 25 },
+      head: [headers],
+      body: rowData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [15, 23, 42], // Deep Slate 900
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 7.5,
+      },
+      styles: {
+        fontSize: 7.5,
+        cellPadding: 1.5,
+        valign: 'middle',
+      },
+      columnStyles: {
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 26 },
+        2: { cellWidth: 46 },
+      },
+      didParseCell: (data) => {
+        const earnedCrColIdx = headers.length - 3;
+        const totalCrColIdx = headers.length - 2;
+        const statusColIdx = headers.length - 1;
+
+        if (data.section === 'body') {
+          if (data.column.index === statusColIdx) {
+            const val = String(data.cell.raw || '').toUpperCase().trim();
+            if (val === 'PASS') {
+              data.cell.styles.textColor = [5, 122, 85];
+              data.cell.styles.fillColor = [236, 253, 245];
+            } else if (val === 'FAIL') {
+              data.cell.styles.textColor = [185, 28, 28];
+              data.cell.styles.fillColor = [254, 242, 242];
+            }
+          }
+          if (data.column.index === earnedCrColIdx) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.halign = 'center';
+            data.cell.styles.textColor = [5, 122, 85]; // Emerald
+          }
+          if (data.column.index === totalCrColIdx) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.halign = 'center';
+          }
+          if (data.column.index >= 3 && data.column.index < earnedCrColIdx) {
+            data.cell.styles.halign = 'center';
+            const subIndex = data.column.index - 3;
+            const uniqueSub = semSubjectsList[subIndex];
+            const currentStudent = sortedSemRecords[data.row.index];
+
+            if (currentStudent && uniqueSub) {
+              const studentSub = currentStudent.subjects?.find((s) => {
+                const sCode = (s.subjectCode || '').trim().toUpperCase();
+                const sName = (s.subjectName || '').trim().toUpperCase();
+                return (uniqueSub.code && sCode === uniqueSub.code.toUpperCase()) || sName === uniqueSub.name.toUpperCase();
+              });
+
+              if (studentSub) {
+                const isPass = isSubjectPass(studentSub);
+                if (!isPass) {
+                  // Failed in this subject: display 0 credits and light red cell
+                  data.cell.styles.fillColor = [254, 226, 226]; // Light red (#FEE2E2 / Red-100)
+                  data.cell.styles.textColor = [185, 28, 28]; // Dark red (#B91C1C / Red-700)
+                  data.cell.styles.fontStyle = 'bold';
+                } else if (uniqueSub.isNonCredit) {
+                  data.cell.styles.fillColor = [241, 245, 249];
+                  data.cell.styles.textColor = [51, 65, 85];
+                } else {
+                  data.cell.styles.fontStyle = 'bold';
+                  data.cell.styles.textColor = [30, 41, 59];
+                }
+              } else if (uniqueSub.isNonCredit) {
+                data.cell.styles.fillColor = [241, 245, 249];
+                data.cell.styles.textColor = [51, 65, 85];
+              }
+            }
+          }
+        }
+        if (data.section === 'head') {
+          if (data.column.index >= 3 && data.column.index < earnedCrColIdx) {
+            const subIndex = data.column.index - 3;
+            if (semSubjectsList[subIndex]?.isNonCredit) {
+              data.cell.styles.fillColor = [51, 65, 85];
+            }
+          }
+        }
+      },
+    });
+
+    let afterTableY = (doc as any).lastAutoTable?.finalY || (currentY + 10);
+
+    // 2) SEMESTER TOP ACADEMIC PERFORMERS
+    const topStudents = sortedSemRecords
+      .map((student) => {
+        const creds = getStudentCreditsSummary(student);
+        const totalInfo = getStudentTotalMarks(student);
+        const statusVal = getEffectiveStatus(student);
+        return {
+          student,
+          earnedCredits: creds.earnedCredits,
+          totalCredits: creds.totalCredits,
+          creditsDisplay: creds.display,
+          totalMarksDisplay: totalInfo.display,
+          statusVal,
+        };
+      })
+      .filter((item) => isStudentPass(item.student))
+      .sort((a, b) => b.earnedCredits - a.earnedCredits)
+      .slice(0, 3);
+
+    if (topStudents.length > 0) {
+      if (afterTableY > 155) {
+        doc.addPage();
+        afterTableY = 20;
+      } else {
+        afterTableY += 8;
+      }
+
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(9.5);
+      doc.setTextColor(30, 41, 59);
+      const topTitle = sortedSemKeys.length > 1
+        ? (semKey !== 'Unassigned' ? `SEMESTER ${semKey} — TOP ACADEMIC PERFORMERS (BY CREDITS EARNED)` : 'TOP ACADEMIC PERFORMERS')
+        : 'TOP ACADEMIC PERFORMERS (BY CREDITS EARNED)';
+      doc.text(topTitle, 15, afterTableY);
+
+      const topPerformersRows = topStudents.map((item, index) => [
+        `Rank #${index + 1}`,
+        item.student.usn || '-',
+        item.student.name || '-',
+        item.student.semester || semKey,
+        item.statusVal,
+        item.creditsDisplay !== '-' ? `${item.earnedCredits} Credits` : item.totalMarksDisplay,
+      ]);
+
+      autoTable(doc, {
+        startY: afterTableY + 3,
+        margin: { left: 15, right: 15, bottom: 25 },
+        head: [['Rank', 'USN', 'Student Name', 'Semester', 'Status', 'Credits Earned']],
+        body: topPerformersRows,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [30, 41, 59],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 7.5,
+        },
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 1.5,
+          valign: 'middle',
+        },
+        columnStyles: {
+          0: { cellWidth: 25, fontStyle: 'bold', halign: 'center' },
+          1: { cellWidth: 35 },
+          2: { cellWidth: 80 },
+          3: { cellWidth: 30, halign: 'center' },
+          4: { cellWidth: 30, halign: 'center' },
+          5: { cellWidth: 35, fontStyle: 'bold', halign: 'center' },
+        },
+        didParseCell: (data) => {
+          if (data.section === 'body') {
+            if (data.column.index === 0) {
+              if (data.row.index === 0) data.cell.styles.textColor = [180, 83, 9];
+              else if (data.row.index === 1) data.cell.styles.textColor = [71, 85, 105];
+              else if (data.row.index === 2) data.cell.styles.textColor = [146, 64, 14];
+            }
+            if (data.column.index === 4) {
+              const val = String(data.cell.raw || '').toUpperCase().trim();
+              if (val === 'PASS') {
+                data.cell.styles.textColor = [5, 122, 85];
+                data.cell.styles.fillColor = [236, 253, 245];
+              } else if (val === 'FAIL') {
+                data.cell.styles.textColor = [185, 28, 28];
+                data.cell.styles.fillColor = [254, 242, 242];
+              }
+            }
+            if (data.column.index === 5) {
+              data.cell.styles.textColor = [5, 122, 85];
+            }
+          }
+        },
+      });
+      afterTableY = (doc as any).lastAutoTable?.finalY || afterTableY;
+    }
+
+    // 3) SEMESTER SUBJECT-WISE PASS RATE & STATISTICS
+    let localSavedFaculty: { [key: string]: string } = {};
+    try {
+      const storedF = localStorage.getItem('smvcer_faculty_mapping');
+      if (storedF) localSavedFaculty = JSON.parse(storedF);
+    } catch (e) {}
+
+    const statsMap = new Map<string, {
+      subjectCode: string;
+      subjectName: string;
+      staffName: string;
+      totalStudents: number;
+      totalPass: number;
+      totalFail: number;
+      isNonCredit: boolean;
+    }>();
+
+    semRecords.forEach((student) => {
+      if (student.subjects && Array.isArray(student.subjects)) {
+        student.subjects.forEach((sub) => {
+          if (!sub || !sub.subjectName) return;
+          const code = (sub.subjectCode || '').trim();
+          const name = (sub.subjectName || '').trim();
+          const subKey = code ? code.toUpperCase() : name.toLowerCase();
+          const faculty = (sub.facultyName || localSavedFaculty[subKey] || '').trim();
+          const key = code ? `${code.toUpperCase()}::${name.toUpperCase()}` : name.toUpperCase();
+
+          const isPass = isSubjectPass(sub);
+
+          if (!statsMap.has(key)) {
+            statsMap.set(key, {
+              subjectCode: code,
+              subjectName: name,
+              staffName: faculty,
+              totalStudents: 0,
+              totalPass: 0,
+              totalFail: 0,
+              isNonCredit: !!sub.isNonCredit,
+            });
+          } else {
+            const current = statsMap.get(key)!;
+            if (faculty && !current.staffName) {
+              current.staffName = faculty;
+            }
+            if (sub.isNonCredit) {
+              current.isNonCredit = true;
+            }
+          }
+
+          const current = statsMap.get(key)!;
+          current.totalStudents += 1;
+          if (isPass) {
+            current.totalPass += 1;
+          } else {
+            current.totalFail += 1;
+          }
+        });
+      }
+    });
+
+    const subjectStatsList = Array.from(statsMap.values()).map((stat) => {
+      const passPct = stat.totalStudents > 0 ? (stat.totalPass / stat.totalStudents) * 100 : 0;
+      return {
+        ...stat,
+        passPercentage: Math.round(passPct * 10) / 10,
+      };
+    });
+
+    if (afterTableY > 145) {
+      doc.addPage();
+      afterTableY = 20;
+    } else {
+      afterTableY += 8;
+    }
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(30, 41, 59);
+    const subStatsTitle = sortedSemKeys.length > 1
+      ? (semKey !== 'Unassigned' ? `SEMESTER ${semKey} — SUBJECT-WISE PASS RATE & STATISTICS` : 'SUBJECT-WISE PASS RATE & STATISTICS')
+      : 'SUBJECT-WISE PASS RATE & STATISTICS';
+    doc.text(subStatsTitle, 15, afterTableY);
+
+    if (subjectStatsList.length > 0) {
+      const subjectStatsRows = subjectStatsList.map((stat, idx) => [
+        idx + 1,
+        stat.subjectCode || '-',
+        stat.isNonCredit ? `${stat.subjectName} * (Non-Credit)` : (stat.subjectName || '-'),
+        stat.staffName || '-',
+        stat.totalStudents,
+        stat.totalPass,
+        stat.totalFail,
+        `${stat.passPercentage}%`,
+      ]);
+
+      autoTable(doc, {
+        startY: afterTableY + 3,
+        margin: { left: 15, right: 15, bottom: 20 },
+        head: [['S.No.', 'Subject Code', 'Subject Name', 'Staff Handling', 'Appeared', 'Passed', 'Failed', 'Pass Rate']],
+        body: subjectStatsRows,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [15, 23, 42],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 7.5,
+        },
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 1.5,
+          valign: 'middle',
+        },
+        columnStyles: {
+          0: { cellWidth: 12, halign: 'center' },
+          1: { cellWidth: 28, fontStyle: 'bold' },
+          2: { cellWidth: 75 },
+          3: { cellWidth: 62, fontStyle: 'bold', textColor: [30, 41, 59] },
+          4: { cellWidth: 22, halign: 'center' },
+          5: { cellWidth: 22, halign: 'center', textColor: [5, 122, 85] },
+          6: { cellWidth: 22, halign: 'center', textColor: [185, 28, 28] },
+          7: { cellWidth: 24, halign: 'center', fontStyle: 'bold' },
+        },
+        didParseCell: (data) => {
+          if (data.section === 'body') {
+            const stat = subjectStatsList[data.row.index];
+            if (stat?.isNonCredit) {
+              data.cell.styles.fillColor = [241, 245, 249];
+            }
+            if (data.column.index === 7) {
+              const pct = parseFloat(String(data.cell.raw).replace('%', ''));
+              if (pct >= 75) {
+                data.cell.styles.textColor = [5, 122, 85];
+              } else if (pct < 50) {
+                data.cell.styles.textColor = [185, 28, 28];
+              }
+            }
+          }
+        },
+      });
+    }
+
+    currentY = (doc as any).lastAutoTable?.finalY || (afterTableY + 10);
+    currentY += 12;
+  });
+
+  // --- SIGNATURE SECTION ---
+  let finalY = (doc as any).lastAutoTable?.finalY || 140;
+  let sigY = finalY + 18;
+  if (sigY > 185) {
+    if (finalY <= 167) {
+      sigY = 185;
+    } else {
+      doc.addPage();
+      sigY = 35;
+    }
+  }
+
+  doc.setFont('Helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(15, 23, 42);
+  doc.text('HOD', 15, sigY);
+  doc.text('PRINCIPAL', 282, sigY, { align: 'right' });
+
+  // Footer / Page numbers helper
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  const pageHeight = doc.internal.pageSize.height;
+
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.line(15, pageHeight - 12, 282, pageHeight - 12);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(148, 163, 184);
+    doc.text('Detailed Academic Credits Register (Landscape)', 15, pageHeight - 5);
+    doc.text(`Page ${i} of ${totalPages}`, 282, pageHeight - 5, { align: 'right' });
+  }
+
+  // Save the PDF
+  let departmentShortName = '';
+  for (const rec of records) {
+    const dept = getDepartmentFromUsn(rec.usn);
+    if (dept) {
+      departmentShortName = dept.short;
+      break;
+    }
+  }
+  const deptPart = departmentShortName || 'DEPT';
+  const semPart = uniqueSemesters.length > 0 ? uniqueSemesters.join('_') : 'ALL';
+  const filename = `SMVCER_${deptPart}_Sem_${semPart}_credits_register.pdf`;
   doc.save(filename);
 }

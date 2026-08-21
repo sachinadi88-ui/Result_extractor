@@ -15,7 +15,7 @@ import { SemesterSelectModal } from './components/SemesterSelectModal';
 import { ChatModal } from './components/ChatModal';
 import { StudentRecord, AuthUser } from './types';
 import { getStoredStudentRecords, saveStudentRecords, exportToExcel } from './utils/storage';
-import { exportToPDF, exportToPDFLandscape } from './utils/pdfExport';
+import { exportToPDF, exportToPDFLandscape, exportToPDFCreditsLandscape } from './utils/pdfExport';
 import { getEffectiveStatus, getDepartmentFromUsn, filterRecordsBySemester } from './utils/statusHelper';
 import { mergeExtractedStudentsWithExisting } from './utils/mergeRecords';
 import {
@@ -410,6 +410,23 @@ export default function App() {
     }
   };
 
+  const handleExportPDFCreditsLandscape = async (overrideSemester?: string) => {
+    try {
+      const semToUse = typeof overrideSemester === 'string' && overrideSemester.length > 0 ? overrideSemester : selectedSemester;
+      const exportRecords = filterRecordsBySemester(records, semToUse);
+      if (exportRecords.length === 0) {
+        showToast(`No student records found for Semester "${semToUse}".`);
+        return;
+      }
+      const semLabel = semToUse === 'ALL' ? 'All Semesters' : `Semester ${semToUse}`;
+      showToast(`Preparing Credits Landscape PDF for ${exportRecords.length} records (${semLabel})...`);
+      await exportToPDFCreditsLandscape(exportRecords);
+    } catch (err) {
+      console.error('Error generating Credits Landscape PDF:', err);
+      showToast('Failed to export Credits Landscape PDF.');
+    }
+  };
+
   const handleSaveToDatabase = async () => {
     if (!currentUser) return;
     if (isLocked) {
@@ -511,6 +528,7 @@ export default function App() {
         onExportExcel={handleExportExcel}
         onExportPDF={handleExportPDF}
         onExportPDFLandscape={handleExportPDFLandscape}
+        onExportPDFCreditsLandscape={handleExportPDFCreditsLandscape}
         onSaveToDatabase={handleSaveToDatabase}
         onReloadDatabase={handleReloadDatabase}
         onClearAll={handleClearAll}
@@ -610,6 +628,7 @@ export default function App() {
             onBackToMain={() => setCurrentView('main')}
             onExportPDF={handleExportPDF}
             onExportPDFLandscape={handleExportPDFLandscape}
+            onExportPDFCreditsLandscape={handleExportPDFCreditsLandscape}
             onExportExcel={handleExportExcel}
             onSelectStudent={(student) => {
               setSelectedStudent(student);
