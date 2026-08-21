@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, Plus, Edit2, FileText, CheckCircle2, XCircle, Eye, ChevronRight, Sparkles, Loader2, RefreshCw, AlertCircle, Lock, Download, ChevronDown, ChevronUp, Layers } from 'lucide-react';
+import { X, Save, Trash2, Plus, Edit2, FileText, CheckCircle2, XCircle, Eye, ChevronRight, Sparkles, Loader2, RefreshCw, AlertCircle, Lock, Download, ChevronDown, ChevronUp, Layers, Award } from 'lucide-react';
 import { StudentRecord, SubjectResult } from '../types';
-import { isStudentPass, isSubjectPass, getEffectiveStatus, getDepartmentFromUsn, getStudentTotalMarks, sanitizeSubject } from '../utils/statusHelper';
+import { isStudentPass, isSubjectPass, getEffectiveStatus, getDepartmentFromUsn, getStudentTotalMarks, getStudentCreditsSummary, sanitizeSubject } from '../utils/statusHelper';
 
 export function formatClearedDate(isoString?: string): string {
   if (!isoString) return '';
@@ -314,8 +314,8 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/50 backdrop-blur-sm animate-fade-in overflow-y-auto">
-      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-5xl my-auto overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-900/50 backdrop-blur-sm animate-fade-in overflow-y-auto">
+      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-7xl 2xl:max-w-[1440px] my-auto overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
         
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
@@ -434,7 +434,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
             
             {/* Left Column: Original Screenshot Image */}
             {formData.imageUrl && showOriginalImage && (
-              <div className="lg:col-span-5 bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col">
+              <div className="lg:col-span-4 bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col">
                 <div className="text-xs font-semibold text-slate-700 mb-2 flex items-center justify-between">
                   <span className="flex items-center space-x-1.5">
                     <span>Source Screenshot</span>
@@ -479,7 +479,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
             )}
 
             {/* Right / Main Column: Structured Fields & Subjects */}
-            <div className={`${formData.imageUrl && showOriginalImage ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-5`}>
+            <div className={`${formData.imageUrl && showOriginalImage ? 'lg:col-span-8' : 'lg:col-span-12'} space-y-5`}>
               
               {/* CONSOLIDATED STUDENT USN PROFILE (MULTI-SEM ACCORDION) */}
               {matchingUsnRecords.length > 0 && (
@@ -547,6 +547,14 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                               <span className="text-xs font-bold text-slate-700">
                                 {marksInfo.hasValid ? `${marksInfo.sum} Mks` : '-'}
                               </span>
+                              {(() => {
+                                const semCreds = getStudentCreditsSummary(rec);
+                                return semCreds.hasCredits ? (
+                                  <span className="text-[11px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                    {semCreds.earnedCredits}/{semCreds.totalCredits} Cr
+                                  </span>
+                                ) : null;
+                              })()}
                               {isExpanded ? (
                                 <ChevronUp className="w-4 h-4 text-slate-400" />
                               ) : (
@@ -633,10 +641,106 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
               {/* Primary Metadata Box */}
               <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-4 space-y-4">
-                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Student Details
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Student Details
+                  </h3>
+                  {(() => {
+                    const isPass = isStudentPass(formData);
+                    return (
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
+                        isPass ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'
+                      }`}>
+                        {isPass ? 'PASS' : 'FAIL'}
+                      </span>
+                    );
+                  })()}
+                </div>
 
+                {/* Live Academic Summary Banner (Recalculates instantly on edits) */}
+                {(() => {
+                  const marksInfo = getStudentTotalMarks(formData);
+                  const credsInfo = getStudentCreditsSummary(formData);
+                  const isPass = isStudentPass(formData);
+
+                  return (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3 rounded-xl bg-white border border-slate-200/90 shadow-2xs">
+                      {/* Total Marks */}
+                      <div className="flex items-center space-x-2.5 p-2 rounded-lg bg-slate-50 border border-slate-200/80">
+                        <div className="p-1.5 rounded-md bg-indigo-50 text-indigo-600 border border-indigo-100 shrink-0">
+                          <FileText className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Marks</span>
+                          <span className="text-xs font-bold text-slate-900 font-mono">
+                            {marksInfo.display}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Earned Credits */}
+                      <div className={`flex items-center space-x-2.5 p-2 rounded-lg border transition-all ${
+                        credsInfo.failedCredits > 0
+                          ? 'bg-amber-50/70 border-amber-200 text-amber-900'
+                          : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                      }`}>
+                        <div className={`p-1.5 rounded-md border shrink-0 ${
+                          credsInfo.failedCredits > 0
+                            ? 'bg-amber-100 text-amber-700 border-amber-200'
+                            : 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                        }`}>
+                          <Award className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wider block opacity-70">
+                            Earned Credits
+                          </span>
+                          <div className="flex items-baseline space-x-1">
+                            <span className="text-xs font-extrabold font-mono">
+                              {credsInfo.hasCredits ? credsInfo.earnedCredits : '-'}
+                            </span>
+                            {credsInfo.hasCredits && (
+                              <span className="text-[10px] opacity-70 font-normal">
+                                / {credsInfo.totalCredits} Cr
+                              </span>
+                            )}
+                          </div>
+                          {credsInfo.failedCredits > 0 && (
+                            <span className="text-[9px] font-semibold text-red-600 block truncate" title="Credits from failed subjects are omitted">
+                              ({credsInfo.failedCredits} failed omitted)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* SGPA & Result */}
+                      <div className="flex items-center space-x-2.5 p-2 rounded-lg bg-slate-50 border border-slate-200/80">
+                        <div className={`p-1.5 rounded-md border shrink-0 ${
+                          isPass
+                            ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                            : 'bg-red-50 text-red-600 border-red-200'
+                        }`}>
+                          {isPass ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Result / SGPA</span>
+                          <div className="flex items-center space-x-1.5">
+                            <span className={`text-xs font-bold ${isPass ? 'text-emerald-700' : 'text-red-700'}`}>
+                              {isPass ? 'PASS' : 'FAIL'}
+                            </span>
+                            {formData.sgpa && (
+                              <span className="text-[11px] text-slate-500 font-mono">
+                                • SGPA {formData.sgpa}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* USN and Student Name */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div>
                     <label className="block text-slate-600 mb-1 font-medium">USN / Register Number *</label>
@@ -676,47 +780,65 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-900 font-bold focus:outline-none focus:border-emerald-600 disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                     />
                   </div>
+                </div>
 
-                  <div>
-                    <label className="block text-slate-600 mb-1 font-medium">College / Institution</label>
+                {/* College, Semester, SGPA, Overall Status in one 12-column responsive row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3 text-xs">
+                  <div className="md:col-span-5">
+                    <label className="block text-slate-600 mb-1 font-medium truncate" title="College / Institution">
+                      College / Institution
+                    </label>
                     <input
                       type="text"
                       disabled={isLocked}
                       value={formData.college || ''}
                       onChange={(e) => handleFieldChange('college', e.target.value)}
+                      placeholder="College name/code"
                       className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 focus:outline-none focus:border-emerald-600 disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-slate-600 mb-1 font-medium">Semester / Exam</label>
+                  <div className="md:col-span-2">
+                    <label className="block text-slate-600 mb-1 font-medium truncate text-center md:text-left" title="Semester / Exam">
+                      Sem / Exam
+                    </label>
                     <input
                       type="text"
                       disabled={isLocked}
                       value={formData.semester || ''}
                       onChange={(e) => handleFieldChange('semester', e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 focus:outline-none focus:border-emerald-600 disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
+                      placeholder="e.g. 2"
+                      className="w-full px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 font-semibold text-center focus:outline-none focus:border-emerald-600 disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-slate-600 mb-1 font-medium">SGPA / CGPA</label>
+                  <div className="md:col-span-2">
+                    <label className="block text-slate-600 mb-1 font-medium truncate text-center md:text-left" title="SGPA / CGPA">
+                      SGPA / CGPA
+                    </label>
                     <input
                       type="text"
                       disabled={isLocked}
                       value={formData.sgpa || ''}
                       onChange={(e) => handleFieldChange('sgpa', e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 focus:outline-none focus:border-emerald-600 disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
+                      placeholder="e.g. 8.45"
+                      className="w-full px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 font-mono text-center focus:outline-none focus:border-emerald-600 disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-slate-600 mb-1 font-medium">Overall Status</label>
+                  <div className="md:col-span-3">
+                    <label className="block text-slate-600 mb-1 font-medium truncate" title="Overall Status">
+                      Overall Status
+                    </label>
                     <select
                       value={getEffectiveStatus(formData)}
                       disabled={isLocked}
                       onChange={(e) => handleFieldChange('status', e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 focus:outline-none focus:border-emerald-600 font-semibold disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
+                      className={`w-full px-3 py-2 rounded-lg border font-bold focus:outline-none focus:border-emerald-600 disabled:cursor-not-allowed ${
+                        getEffectiveStatus(formData) === 'PASS'
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          : 'bg-red-50 text-red-800 border-red-200'
+                      }`}
                     >
                       <option value="PASS">PASS</option>
                       <option value="FAIL">FAIL</option>
@@ -746,35 +868,35 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                   )}
                 </div>
 
-                <div className="overflow-x-auto border border-slate-200 rounded-lg bg-white">
-                  <table className="w-full text-xs text-left text-slate-700">
+                <div className="overflow-x-auto border border-slate-200 rounded-lg bg-white shadow-2xs">
+                  <table className="w-full min-w-[720px] text-xs text-left text-slate-700">
                     <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px]">
                       <tr>
-                        <th className="px-3 py-2 w-28">Subject Code</th>
-                        <th className="px-3 py-2 min-w-[150px]">Subject Name</th>
-                        <th className="px-3 py-2 w-20">Internal</th>
-                        <th className="px-3 py-2 w-20">External</th>
-                        <th className="px-3 py-2 w-20">Total</th>
-                        <th className="px-3 py-2 w-16 text-center">Credits</th>
-                        <th className="px-3 py-2 w-24">Result</th>
-                        <th className="px-3 py-2 w-20 text-center" title="Exclude subject marks from Total calculation">Non-Credit</th>
-                        {!isLocked && <th className="px-3 py-2 w-10 text-center">Action</th>}
+                        <th className="px-3 py-2 w-28 min-w-[95px]">Subject Code</th>
+                        <th className="px-3 py-2 min-w-[180px]">Subject Name</th>
+                        <th className="px-3 py-2 w-20 min-w-[65px]">Internal</th>
+                        <th className="px-3 py-2 w-20 min-w-[65px]">External</th>
+                        <th className="px-3 py-2 w-20 min-w-[65px]">Total</th>
+                        <th className="px-3 py-2 w-16 min-w-[55px] text-center">Credits</th>
+                        <th className="px-3 py-2 w-28 min-w-[100px]">Result</th>
+                        <th className="px-3 py-2 w-20 min-w-[70px] text-center" title="Exclude subject marks from Total calculation">Non-Credit</th>
+                        {!isLocked && <th className="px-3 py-2 w-10 min-w-[45px] text-center">Action</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {formData.subjects.map((sub, idx) => (
                         <tr key={idx} className="hover:bg-slate-50">
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-2 min-w-[95px]">
                             <input
                               type="text"
                               disabled={isLocked}
                               value={sub.subjectCode || ''}
                               onChange={(e) => handleSubjectChange(idx, 'subjectCode', e.target.value)}
                               placeholder="Code"
-                              className="w-full px-2 py-1 rounded bg-slate-50 border border-slate-200 font-mono text-slate-800 focus:border-emerald-600 focus:bg-white focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
+                              className="w-full min-w-[85px] px-2 py-1.5 rounded bg-slate-50 border border-slate-200 font-mono text-xs font-bold text-slate-900 focus:border-emerald-600 focus:bg-white focus:outline-none tracking-wide disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed uppercase"
                             />
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-2 min-w-[180px]">
                             <input
                               type="text"
                               disabled={isLocked}
@@ -782,50 +904,50 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                               onChange={(e) => handleSubjectChange(idx, 'subjectName', e.target.value)}
                               required
                               placeholder="Subject Name"
-                              className="w-full px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-900 font-medium focus:border-emerald-600 focus:bg-white focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
+                              className="w-full min-w-[160px] px-2.5 py-1.5 rounded bg-slate-50 border border-slate-200 text-slate-900 font-medium focus:border-emerald-600 focus:bg-white focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                             />
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-2 min-w-[65px]">
                             <input
                               type="text"
                               disabled={isLocked}
                               value={sub.internalMarks || ''}
                               onChange={(e) => handleSubjectChange(idx, 'internalMarks', e.target.value)}
                               placeholder="Int"
-                              className="w-full px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-800 font-mono focus:border-emerald-600 focus:bg-white focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
+                              className="w-full min-w-[55px] px-2 py-1.5 rounded bg-slate-50 border border-slate-200 text-slate-800 font-mono focus:border-emerald-600 focus:bg-white focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                             />
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-2 min-w-[65px]">
                             <input
                               type="text"
                               disabled={isLocked}
                               value={sub.externalMarks || ''}
                               onChange={(e) => handleSubjectChange(idx, 'externalMarks', e.target.value)}
                               placeholder="Ext"
-                              className="w-full px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-800 font-mono focus:border-emerald-600 focus:bg-white focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
+                              className="w-full min-w-[55px] px-2 py-1.5 rounded bg-slate-50 border border-slate-200 text-slate-800 font-mono focus:border-emerald-600 focus:bg-white focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                             />
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-2 min-w-[65px]">
                             <input
                               type="text"
                               disabled={isLocked}
                               value={sub.totalMarks || ''}
                               onChange={(e) => handleSubjectChange(idx, 'totalMarks', e.target.value)}
                               placeholder="Total"
-                              className="w-full px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-800 font-mono font-bold focus:border-emerald-600 focus:bg-white focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
+                              className="w-full min-w-[55px] px-2 py-1.5 rounded bg-slate-50 border border-slate-200 text-slate-800 font-mono font-bold focus:border-emerald-600 focus:bg-white focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                             />
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-2 min-w-[55px]">
                             <input
                               type="text"
                               disabled={isLocked}
                               value={sub.credits || ''}
                               onChange={(e) => handleSubjectChange(idx, 'credits', e.target.value)}
                               placeholder="Cr"
-                              className="w-full px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-800 font-mono font-semibold text-center focus:border-emerald-600 focus:bg-white focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
+                              className="w-full min-w-[45px] px-2 py-1.5 rounded bg-slate-50 border border-slate-200 text-slate-800 font-mono font-semibold text-center focus:border-emerald-600 focus:bg-white focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                             />
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-2 min-w-[100px]">
                             <div className="flex items-center space-x-1">
                               <input
                                 type="text"
@@ -834,7 +956,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                                 onChange={(e) => handleSubjectChange(idx, 'result', e.target.value)}
                                 required
                                 placeholder="PASS / FAIL"
-                                className={`w-full px-2 py-1 rounded border font-bold focus:outline-none disabled:cursor-not-allowed ${
+                                className={`w-full min-w-[80px] px-2 py-1.5 rounded border font-bold text-xs focus:outline-none disabled:cursor-not-allowed ${
                                   (sub.result || '').toUpperCase().includes('PASS') || sub.result === 'P'
                                     ? 'text-emerald-700 bg-emerald-50 border-emerald-200 disabled:bg-emerald-50/50'
                                     : (sub.result || '').toUpperCase().includes('FAIL') || sub.result === 'F'
@@ -852,7 +974,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                               )}
                             </div>
                           </td>
-                          <td className="px-3 py-2 text-center">
+                          <td className="px-3 py-2 min-w-[70px] text-center">
                             <label className={`inline-flex items-center justify-center ${isLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
                               <input
                                 type="checkbox"
@@ -865,11 +987,11 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                             </label>
                           </td>
                           {!isLocked && (
-                            <td className="px-3 py-2 text-center">
+                            <td className="px-3 py-2 min-w-[45px] text-center">
                               <button
                                 type="button"
                                 onClick={() => setSubjectToDeleteIndex(idx)}
-                                className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                className="p-1.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                                 title="Delete row"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />

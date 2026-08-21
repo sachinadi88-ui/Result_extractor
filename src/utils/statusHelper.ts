@@ -249,6 +249,68 @@ export const getStudentTotalMarks = (student: StudentRecord): { display: string;
   return { display: `${sum}`, sum, hasValid: true };
 };
 
+export interface StudentCreditsSummary {
+  earnedCredits: number;
+  totalCredits: number;
+  failedCredits: number;
+  display: string;
+  hasCredits: boolean;
+}
+
+// Helper to calculate total earned credits for a student (omits credits of failed subjects)
+export function getStudentCreditsSummary(student: Partial<StudentRecord> | any): StudentCreditsSummary {
+  let earnedCredits = 0;
+  let totalCredits = 0;
+  let hasCredits = false;
+
+  let localCreditsMap: { [key: string]: string } = {};
+  try {
+    const stored = localStorage.getItem('smvcer_credits_mapping');
+    if (stored) localCreditsMap = JSON.parse(stored);
+  } catch (e) {}
+
+  if (student && student.subjects && Array.isArray(student.subjects)) {
+    student.subjects.forEach((sub: any) => {
+      if (!sub) return;
+      if (sub.isNonCredit) return;
+
+      const code = (sub.subjectCode || '').trim().toUpperCase();
+      const name = (sub.subjectName || '').trim().toLowerCase();
+      const key = code || name;
+
+      const creditStr = (sub.credits !== undefined && sub.credits !== null && String(sub.credits).trim() !== '')
+        ? String(sub.credits).trim()
+        : (localCreditsMap[key] || '');
+
+      const creditNum = parseFloat(creditStr);
+      if (!isNaN(creditNum) && creditNum > 0) {
+        hasCredits = true;
+        totalCredits += creditNum;
+        if (isSubjectPass(sub)) {
+          earnedCredits += creditNum;
+        }
+      }
+    });
+  }
+
+  earnedCredits = Math.round(earnedCredits * 100) / 100;
+  totalCredits = Math.round(totalCredits * 100) / 100;
+  const failedCredits = Math.max(0, Math.round((totalCredits - earnedCredits) * 100) / 100);
+
+  let display = '-';
+  if (hasCredits) {
+    display = `${earnedCredits} / ${totalCredits}`;
+  }
+
+  return {
+    earnedCredits,
+    totalCredits,
+    failedCredits,
+    display,
+    hasCredits,
+  };
+}
+
 export interface DepartmentInfo {
   code: string;
   short: string;

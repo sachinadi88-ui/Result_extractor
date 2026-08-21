@@ -25,7 +25,7 @@ import {
   Award
 } from 'lucide-react';
 import { StudentRecord, SubjectResult } from '../types';
-import { isSubjectPass, isStudentPass, getEffectiveStatus, getStudentTotalMarks, sanitizeSubject } from '../utils/statusHelper';
+import { isSubjectPass, isStudentPass, getEffectiveStatus, getStudentTotalMarks, getStudentCreditsSummary, sanitizeSubject } from '../utils/statusHelper';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { SubjectCreditsModal } from './SubjectCreditsModal';
 
@@ -506,7 +506,10 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                     <span>Subjects (Column 1) &amp; Results (Next Column)</span>
                   </th>
                   <th className="px-4 py-3.5 w-24 text-center">
-                    <span>Total</span>
+                    <span>Total Marks</span>
+                  </th>
+                  <th className="px-4 py-3.5 w-24 text-center">
+                    <span>Credits</span>
                   </th>
                   <th className="px-4 py-3.5 w-28 text-center">
                     <span>Overall Status</span>
@@ -626,6 +629,42 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                         <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 font-mono font-bold text-xs shadow-3xs">
                           {getStudentTotalMarks(student).display}
                         </span>
+                      </td>
+
+                      {/* Total Earned Credits Column */}
+                      <td className="px-4 py-4 align-top text-center">
+                        {(() => {
+                          const creds = getStudentCreditsSummary(student);
+                          if (!creds.hasCredits) {
+                            return <span className="text-slate-400 font-mono text-xs">-</span>;
+                          }
+                          return (
+                            <div className="inline-flex flex-col items-center justify-center">
+                              <span
+                                className={`inline-flex items-center justify-center px-2.5 py-1 rounded-lg border font-mono font-bold text-xs shadow-3xs ${
+                                  creds.failedCredits > 0
+                                    ? 'bg-amber-50 text-amber-900 border-amber-200'
+                                    : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                }`}
+                                title={
+                                  creds.failedCredits > 0
+                                    ? `Earned ${creds.earnedCredits} / ${creds.totalCredits} (${creds.failedCredits} failed omitted)`
+                                    : `Earned all ${creds.earnedCredits} credits`
+                                }
+                              >
+                                {creds.earnedCredits}
+                                <span className="text-[10px] text-slate-400 font-normal ml-0.5">
+                                  /{creds.totalCredits}
+                                </span>
+                              </span>
+                              {creds.failedCredits > 0 && (
+                                <span className="text-[9px] font-bold text-red-600 mt-0.5">
+                                  -{creds.failedCredits} Fail
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Overall Status Column */}
@@ -798,8 +837,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                       </th>
                     );
                   })}
-                  <th className="px-3 py-2 text-center min-w-[90px] border-r border-slate-200">Total</th>
-                  <th className="px-3 py-2 text-center min-w-[90px]">Status</th>
+                  <th className="px-3 py-2 text-center min-w-[85px] border-r border-slate-200">Total Marks</th>
+                  <th className="px-3 py-2 text-center min-w-[85px] border-r border-slate-200">Credits</th>
+                  <th className="px-3 py-2 text-center min-w-[85px]">Status</th>
                   <th className="px-3 py-2 text-right min-w-[80px]">Actions</th>
                 </tr>
               </thead>
@@ -874,10 +914,37 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                           </td>
                         );
                       })}
-                      <td className="px-3 py-1.5 text-center border-r border-slate-100 min-w-[90px]">
-                        <span className="inline-flex items-center justify-center px-2.5 py-1 rounded bg-slate-50 border border-slate-200 text-slate-800 font-mono font-bold text-xs">
+                      <td className="px-3 py-1.5 text-center border-r border-slate-100 min-w-[85px]">
+                        <span className="inline-flex items-center justify-center px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-800 font-mono font-bold text-xs">
                           {getStudentTotalMarks(student).display}
                         </span>
+                      </td>
+                      <td className="px-3 py-1.5 text-center border-r border-slate-100 min-w-[85px]">
+                        {(() => {
+                          const creds = getStudentCreditsSummary(student);
+                          if (!creds.hasCredits) {
+                            return <span className="text-slate-400 font-mono text-xs">-</span>;
+                          }
+                          return (
+                            <span
+                              className={`inline-flex items-center justify-center px-2 py-0.5 rounded font-mono font-bold text-xs ${
+                                creds.failedCredits > 0
+                                  ? 'bg-amber-50 text-amber-900 border border-amber-200'
+                                  : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                              }`}
+                              title={
+                                creds.failedCredits > 0
+                                  ? `Earned ${creds.earnedCredits} / ${creds.totalCredits} credits (${creds.failedCredits} failed omitted)`
+                                  : `All ${creds.earnedCredits} credits earned`
+                              }
+                            >
+                              {creds.earnedCredits}
+                              <span className="text-[10px] text-slate-400 font-normal ml-0.5">
+                                /{creds.totalCredits}
+                              </span>
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-3 py-1.5 text-center">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isPass ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
@@ -1030,6 +1097,24 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   <div className="flex flex-col gap-0.5">
                     <span>SGPA: <strong className="text-slate-800">{student.sgpa || 'N/A'}</strong></span>
                     <span>Total: <strong className="text-slate-900 font-mono font-bold">{getStudentTotalMarks(student).display}</strong></span>
+                    {(() => {
+                      const creds = getStudentCreditsSummary(student);
+                      if (!creds.hasCredits) return null;
+                      return (
+                        <span className="text-[11px]">
+                          Credits:{' '}
+                          <strong className={`font-mono font-bold ${creds.failedCredits > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                            {creds.earnedCredits}
+                          </strong>
+                          <span className="text-slate-400 font-normal">/{creds.totalCredits}</span>
+                          {creds.failedCredits > 0 && (
+                            <span className="text-[10px] text-red-600 font-semibold ml-1">
+                              (-{creds.failedCredits} Fail)
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
                     <button

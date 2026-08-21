@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { StudentRecord } from '../types';
-import { getEffectiveStatus, getStudentTotalMarks, isStudentPass, isSubjectPass, getDepartmentFromUsn, sanitizeRecord, cleanMarkVal } from './statusHelper';
+import { getEffectiveStatus, getStudentTotalMarks, getStudentCreditsSummary, isStudentPass, isSubjectPass, getDepartmentFromUsn, sanitizeRecord, cleanMarkVal } from './statusHelper';
 
 // Helper to convert the college logo crest to a base64 string for embedding
 function getLogoDataUrl(): Promise<string | null> {
@@ -842,12 +842,15 @@ export async function exportToPDFLandscape(rawRecords: StudentRecord[]): Promise
       return sub.isNonCredit ? `${raw}*` : raw;
     });
 
+    const hasAnyCreditsInSem = semRecords.some((r) => getStudentCreditsSummary(r).hasCredits);
+
     const headers = [
       'S.No.',
       'USN',
       'Student Name',
       ...subjectHeaders,
       'Total Marks',
+      ...(hasAnyCreditsInSem ? ['Credits'] : []),
       'Status',
     ];
 
@@ -879,6 +882,10 @@ export async function exportToPDFLandscape(rawRecords: StudentRecord[]): Promise
       });
 
       studentRow.push(totalInfo.display);
+      if (hasAnyCreditsInSem) {
+        const creds = getStudentCreditsSummary(rec);
+        studentRow.push(creds.hasCredits ? `${creds.earnedCredits}/${creds.totalCredits}` : '-');
+      }
       studentRow.push(statusVal);
 
       return studentRow;
@@ -907,8 +914,12 @@ export async function exportToPDFLandscape(rawRecords: StudentRecord[]): Promise
         2: { cellWidth: 46 },
       },
       didParseCell: (data) => {
+        const totalMarksColIdx = hasAnyCreditsInSem ? headers.length - 3 : headers.length - 2;
+        const creditsColIdx = hasAnyCreditsInSem ? headers.length - 2 : -1;
+        const statusColIdx = headers.length - 1;
+
         if (data.section === 'body') {
-          if (data.column.index === headers.length - 1) {
+          if (data.column.index === statusColIdx) {
             const val = String(data.cell.raw || '').toUpperCase().trim();
             if (val === 'PASS') {
               data.cell.styles.textColor = [5, 122, 85];
@@ -918,11 +929,11 @@ export async function exportToPDFLandscape(rawRecords: StudentRecord[]): Promise
               data.cell.styles.fillColor = [254, 242, 242];
             }
           }
-          if (data.column.index === headers.length - 2) {
+          if (data.column.index === totalMarksColIdx || data.column.index === creditsColIdx) {
             data.cell.styles.fontStyle = 'bold';
             data.cell.styles.halign = 'center';
           }
-          if (data.column.index >= 3 && data.column.index <= headers.length - 3) {
+          if (data.column.index >= 3 && data.column.index < totalMarksColIdx) {
             data.cell.styles.halign = 'center';
             const subIndex = data.column.index - 3;
             const uniqueSub = semSubjectsList[subIndex];
@@ -954,7 +965,7 @@ export async function exportToPDFLandscape(rawRecords: StudentRecord[]): Promise
           }
         }
         if (data.section === 'head') {
-          if (data.column.index >= 3 && data.column.index <= headers.length - 3) {
+          if (data.column.index >= 3 && data.column.index < totalMarksColIdx) {
             const subIndex = data.column.index - 3;
             if (semSubjectsList[subIndex]?.isNonCredit) {
               data.cell.styles.fillColor = [51, 65, 85];

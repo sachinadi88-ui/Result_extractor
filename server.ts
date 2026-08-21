@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { processExtractResult, formatExtractError } from "./src/server/geminiExtract";
+import { processChatQuery } from "./src/server/geminiChat";
 
 dotenv.config();
 
@@ -134,6 +135,25 @@ app.post("/api/extract-result", async (req, res) => {
     res.status(500).json({
       success: false,
       error: userMessage,
+    });
+  }
+});
+
+app.post("/api/chat", async (req, res) => {
+  try {
+    const { question, semesterContext, studentDataSummary, conversationHistory } = req.body || {};
+    const result = await processChatQuery({
+      question,
+      semesterContext,
+      studentDataSummary,
+      conversationHistory,
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error("Chatbot query error:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message || "Failed to process chat query",
     });
   }
 });

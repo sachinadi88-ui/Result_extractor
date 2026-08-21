@@ -12,6 +12,7 @@ import { PasswordModal } from './components/PasswordModal';
 import { FacultyMapModal } from './components/FacultyMapModal';
 import { NewView } from './components/NewView';
 import { SemesterSelectModal } from './components/SemesterSelectModal';
+import { ChatModal } from './components/ChatModal';
 import { StudentRecord, AuthUser } from './types';
 import { getStoredStudentRecords, saveStudentRecords, exportToExcel } from './utils/storage';
 import { exportToPDF, exportToPDFLandscape } from './utils/pdfExport';
@@ -24,7 +25,7 @@ import {
   deleteRecordFromFirestore,
   deleteMultipleRecordsFromFirestore
 } from './lib/firebase';
-import { CheckCircle2, FileSpreadsheet, Plus, ShieldCheck, Database, BarChart3, Users } from 'lucide-react';
+import { CheckCircle2, FileSpreadsheet, Plus, ShieldCheck, Database, BarChart3, Users, Bot, Sparkles } from 'lucide-react';
 const smvcerLogo = "/smvcer_crest.jpg";
 
 const AUTH_STORAGE_KEY = 'vtu_auth_user_session_v1';
@@ -57,6 +58,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState<'main' | 'newView'>('main');
   const [selectedSemester, setSelectedSemester] = useState<string>('');
   const [isSemesterModalOpen, setIsSemesterModalOpen] = useState<boolean>(false);
+  const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
   
   // Security locks (Default to locked unless explicitly unlocked by typing password)
   const [isLocked, setIsLocked] = useState<boolean>(() => {
@@ -504,6 +506,7 @@ export default function App() {
         currentUser={currentUser}
         onOpenUpload={handleOpenUpload}
         onOpenStatus={() => setIsStatusOpen(true)}
+        onOpenChat={() => setIsChatOpen(true)}
         onPasteClipboard={handleOpenUpload}
         onExportExcel={handleExportExcel}
         onExportPDF={handleExportPDF}
@@ -771,6 +774,29 @@ export default function App() {
         }}
         records={records}
         currentSemester={selectedSemester}
+      />
+
+      {/* Floating AI Chatbot Action Button */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <button
+          onClick={() => setIsChatOpen(true)}
+          title="Ask AI Assistant about student marks, toppers, or credits"
+          className="group flex items-center space-x-2.5 px-4 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white shadow-xl hover:shadow-indigo-500/25 border border-indigo-500 transition-all duration-200 cursor-pointer"
+        >
+          <div className="relative">
+            <Bot className="w-5 h-5" />
+            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          </div>
+          <span className="text-xs font-bold tracking-wide hidden sm:inline">Ask AI Assistant</span>
+        </button>
+      </div>
+
+      {/* AI Assistant Chat Modal */}
+      <ChatModal
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        records={records}
+        selectedSemester={selectedSemester}
       />
 
     </div>
