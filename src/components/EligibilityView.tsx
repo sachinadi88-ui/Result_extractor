@@ -65,17 +65,9 @@ export const EligibilityView: React.FC<EligibilityViewProps> = ({
     return unique.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }, [allLoadedRecords]);
 
-  // Selected Semesters for comparison
-  const [sem1, setSem1] = useState<string>(() => {
-    if (availableSemesters.includes('1')) return '1';
-    return availableSemesters[0] || '1';
-  });
-
-  const [sem2, setSem2] = useState<string>(() => {
-    if (availableSemesters.includes('2')) return '2';
-    if (availableSemesters.length > 1) return availableSemesters[1];
-    return availableSemesters[0] || '2';
-  });
+  // Selected Semesters for comparison (defaults to empty: no semester preselected)
+  const [sem1, setSem1] = useState<string>('');
+  const [sem2, setSem2] = useState<string>('');
 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterEligibility, setFilterEligibility] = useState<'ALL' | 'ELIGIBLE' | 'NOT_ELIGIBLE'>('ALL');
@@ -96,21 +88,23 @@ export const EligibilityView: React.FC<EligibilityViewProps> = ({
 
   // Fetch full records from Firestore across selected semesters if user is authenticated
   useEffect(() => {
-    if (!userEmail) return;
+    if (!userEmail || (!sem1 && !sem2)) return;
 
     const fetchNeededSems = async () => {
       setIsLoadingSems(true);
       try {
-        const [sem1Data, sem2Data] = await Promise.all([
-          fetchStudentRecordsFromFirestore(userEmail, sem1),
-          fetchStudentRecordsFromFirestore(userEmail, sem2)
-        ]);
+        const promises: Promise<StudentRecord[] | null>[] = [];
+        if (sem1) promises.push(fetchStudentRecordsFromFirestore(userEmail, sem1));
+        if (sem2 && sem2 !== sem1) promises.push(fetchStudentRecordsFromFirestore(userEmail, sem2));
+
+        const fetchedArrays = await Promise.all(promises);
 
         setAllLoadedRecords((prev) => {
           const map = new Map<string, StudentRecord>();
           prev.forEach((r) => map.set(r.id, r));
-          if (sem1Data) sem1Data.forEach((r) => map.set(r.id, r));
-          if (sem2Data) sem2Data.forEach((r) => map.set(r.id, r));
+          fetchedArrays.forEach((arr) => {
+            if (arr) arr.forEach((r) => map.set(r.id, r));
+          });
           return Array.from(map.values());
         });
       } catch (err) {
@@ -207,24 +201,28 @@ export const EligibilityView: React.FC<EligibilityViewProps> = ({
 
       // Check if matches sem1
       if (
-        recSem === normSem1 ||
-        recSem.includes(`sem ${normSem1}`) ||
-        recSem.includes(`${normSem1}th`) ||
-        recSem.includes(`${normSem1}st`) ||
-        recSem.includes(`${normSem1}nd`) ||
-        recSem.includes(`${normSem1}rd`)
+        normSem1 && (
+          recSem === normSem1 ||
+          recSem.includes(`sem ${normSem1}`) ||
+          recSem.includes(`${normSem1}th`) ||
+          recSem.includes(`${normSem1}st`) ||
+          recSem.includes(`${normSem1}nd`) ||
+          recSem.includes(`${normSem1}rd`)
+        )
       ) {
         entry.sem1Rec = rec;
       }
 
       // Check if matches sem2
       if (
-        recSem === normSem2 ||
-        recSem.includes(`sem ${normSem2}`) ||
-        recSem.includes(`${normSem2}th`) ||
-        recSem.includes(`${normSem2}st`) ||
-        recSem.includes(`${normSem2}nd`) ||
-        recSem.includes(`${normSem2}rd`)
+        normSem2 && (
+          recSem === normSem2 ||
+          recSem.includes(`sem ${normSem2}`) ||
+          recSem.includes(`${normSem2}th`) ||
+          recSem.includes(`${normSem2}st`) ||
+          recSem.includes(`${normSem2}nd`) ||
+          recSem.includes(`${normSem2}rd`)
+        )
       ) {
         entry.sem2Rec = rec;
       }
@@ -455,6 +453,7 @@ export const EligibilityView: React.FC<EligibilityViewProps> = ({
               onChange={(e) => setSem1(e.target.value)}
               className="w-full bg-white border border-slate-300 hover:border-violet-500 rounded-lg px-2 sm:px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500 cursor-pointer shadow-2xs"
             >
+              <option value="">Select Semester</option>
               {availableSemesters.map((s) => (
                 <option key={`view-sem1-${s}`} value={s}>
                   Semester {s}
@@ -481,6 +480,7 @@ export const EligibilityView: React.FC<EligibilityViewProps> = ({
               onChange={(e) => setSem2(e.target.value)}
               className="w-full bg-white border border-slate-300 hover:border-violet-500 rounded-lg px-2 sm:px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500 cursor-pointer shadow-2xs"
             >
+              <option value="">Select Semester</option>
               {availableSemesters.map((s) => (
                 <option key={`view-sem2-${s}`} value={s}>
                   Semester {s}
@@ -503,7 +503,7 @@ export const EligibilityView: React.FC<EligibilityViewProps> = ({
                 Rule Check
               </span>
               <p className="text-[11px] text-violet-950 font-semibold">
-                Credits (Sem {sem1} + Sem {sem2}) &gt; 23
+                Credits ({sem1 ? `Sem ${sem1}` : 'Sem ?'} + {sem2 ? `Sem ${sem2}` : 'Sem ?'}) &gt; 23
               </p>
             </div>
             <div className="text-right">
@@ -524,7 +524,9 @@ export const EligibilityView: React.FC<EligibilityViewProps> = ({
           <span className="text-[10px] sm:text-[11px] text-slate-500 font-semibold leading-tight">Total Students Evaluated</span>
           <div className="mt-1 flex items-baseline justify-between">
             <span className="text-lg sm:text-xl font-extrabold text-slate-900">{totalCount}</span>
-            <span className="text-[9px] sm:text-[10px] text-slate-400 font-mono font-medium">Sem {sem1} &amp; {sem2}</span>
+            <span className="text-[9px] sm:text-[10px] text-slate-400 font-mono font-medium">
+              {sem1 || sem2 ? `Sem ${sem1 || '-'} & ${sem2 || '-'}` : 'No Sem Selected'}
+            </span>
           </div>
         </div>
 
@@ -619,9 +621,13 @@ export const EligibilityView: React.FC<EligibilityViewProps> = ({
             <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400 mb-3">
               <Search className="w-6 h-6" />
             </div>
-            <h3 className="text-sm font-bold text-slate-800 mb-1">No Student Records Found</h3>
+            <h3 className="text-sm font-bold text-slate-800 mb-1">
+              {!sem1 && !sem2 ? 'Please Select Semesters' : 'No Student Records Found'}
+            </h3>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              No students match the current search query or filter for Semester {sem1} and Semester {sem2}.
+              {!sem1 && !sem2
+                ? 'Choose two semesters from the dropdowns above to evaluate cumulative credit eligibility.'
+                : `No students match the current search query or filter for ${sem1 ? `Semester ${sem1}` : ''}${sem1 && sem2 ? ' and ' : ''}${sem2 ? `Semester ${sem2}` : ''}.`}
             </p>
           </div>
         ) : (
@@ -661,10 +667,10 @@ export const EligibilityView: React.FC<EligibilityViewProps> = ({
                     </div>
                   </th>
                   <th className="py-3 px-3.5 text-center bg-slate-800">
-                    Sem {sem1} Credits Earned
+                    {sem1 ? `Sem ${sem1} Credits Earned` : 'First Sem Credits'}
                   </th>
                   <th className="py-3 px-3.5 text-center bg-slate-800">
-                    Sem {sem2} Credits Earned
+                    {sem2 ? `Sem ${sem2} Credits Earned` : 'Second Sem Credits'}
                   </th>
                   <th
                     onClick={() => {
@@ -677,7 +683,7 @@ export const EligibilityView: React.FC<EligibilityViewProps> = ({
                     className="py-3 px-3.5 text-center cursor-pointer hover:bg-slate-800 transition-colors bg-slate-800/90"
                   >
                     <div className="flex items-center justify-center space-x-1">
-                      <span>Total Earned (Sem {sem1} + {sem2})</span>
+                      <span>Total Earned ({sem1 && sem2 ? `Sem ${sem1} + Sem ${sem2}` : 'Combined'})</span>
                       <ArrowUpDown className="w-3 h-3 text-slate-400" />
                     </div>
                   </th>
