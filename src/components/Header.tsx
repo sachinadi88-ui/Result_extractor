@@ -21,7 +21,7 @@ interface HeaderProps {
   onSignOut: () => void;
   onOpenBackup: () => void;
   onOpenNewView?: () => void;
-  currentView?: 'main' | 'newView';
+  currentView?: 'main' | 'newView' | 'eligibilityView';
   isLocked: boolean;
   onLock: () => void;
   onUnlockClick: () => void;

@@ -11,6 +11,7 @@ import { BackupModal } from './components/BackupModal';
 import { PasswordModal } from './components/PasswordModal';
 import { FacultyMapModal } from './components/FacultyMapModal';
 import { NewView } from './components/NewView';
+import { EligibilityView } from './components/EligibilityView';
 import { SemesterSelectModal } from './components/SemesterSelectModal';
 import { ChatModal } from './components/ChatModal';
 import { StudentRecord, AuthUser } from './types';
@@ -55,7 +56,7 @@ export default function App() {
   const [isSignOutConfirmOpen, setIsSignOutConfirmOpen] = useState<boolean>(false);
   const [isBackupOpen, setIsBackupOpen] = useState<boolean>(false);
   const [isFacultyModalOpen, setIsFacultyModalOpen] = useState<boolean>(false);
-  const [currentView, setCurrentView] = useState<'main' | 'newView'>('main');
+  const [currentView, setCurrentView] = useState<'main' | 'newView' | 'eligibilityView'>('main');
   const [selectedSemester, setSelectedSemester] = useState<string>('');
   const [isSemesterModalOpen, setIsSemesterModalOpen] = useState<boolean>(false);
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
@@ -618,11 +619,12 @@ export default function App() {
               semesterFilter={selectedSemester}
               onSemesterChange={setSelectedSemester}
               onOpenNewView={() => setCurrentView((prev) => (prev === 'main' ? 'newView' : 'main'))}
+              onOpenEligibilityView={() => setCurrentView('eligibilityView')}
               currentView={currentView}
               onOpenSemesterModal={() => setIsSemesterModalOpen(true)}
             />
           </>
-        ) : (
+        ) : currentView === 'newView' ? (
           <NewView
             records={records}
             onBackToMain={() => setCurrentView('main')}
@@ -630,6 +632,16 @@ export default function App() {
             onExportPDFLandscape={handleExportPDFLandscape}
             onExportPDFCreditsLandscape={handleExportPDFCreditsLandscape}
             onExportExcel={handleExportExcel}
+            onSelectStudent={(student) => {
+              setSelectedStudent(student);
+              setIsDetailOpen(true);
+            }}
+          />
+        ) : (
+          <EligibilityView
+            records={records}
+            userEmail={currentUser?.email}
+            onBackToMain={() => setCurrentView('main')}
             onSelectStudent={(student) => {
               setSelectedStudent(student);
               setIsDetailOpen(true);

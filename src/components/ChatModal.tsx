@@ -21,8 +21,8 @@ interface ChatModalProps {
 const SAMPLE_QUESTIONS = [
   "Who is the topper?",
   "List top 3 students by total marks",
+  "Which students are eligible based on >23 credits?",
   "What is the overall pass percentage?",
-  "Which subject has the lowest pass rate?",
   "How many students have backlogs / failed?",
 ];
 

@@ -22,7 +22,8 @@ import {
   ChevronRight,
   MoveHorizontal,
   Layers,
-  Award
+  Award,
+  CheckCheck
 } from 'lucide-react';
 import { StudentRecord, SubjectResult } from '../types';
 import { isSubjectPass, isStudentPass, getEffectiveStatus, getStudentTotalMarks, getStudentCreditsSummary, sanitizeSubject } from '../utils/statusHelper';
@@ -58,7 +59,8 @@ interface ResultsTableProps {
   semesterFilter?: string;
   onSemesterChange?: (sem: string) => void;
   onOpenNewView?: () => void;
-  currentView?: 'main' | 'newView';
+  onOpenEligibilityView?: () => void;
+  currentView?: 'main' | 'newView' | 'eligibilityView';
   onOpenSemesterModal?: () => void;
 }
 
@@ -73,6 +75,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   semesterFilter: propSemesterFilter,
   onSemesterChange,
   onOpenNewView,
+  onOpenEligibilityView,
   currentView = 'main',
   onOpenSemesterModal,
 }) => {
@@ -331,43 +334,56 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
         {/* Filter & View Mode */}
         <div className="flex flex-wrap items-center gap-2">
           
-          {/* Subject Credits Button (Left side of semester dropdown / Right of search bar) */}
-          <button
-            onClick={() => setIsCreditsModalOpen(true)}
-            title="Configure Subject Credits for Semester"
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-all duration-150 cursor-pointer active:scale-95 shrink-0"
-          >
-            <Award className="w-3.5 h-3.5 text-white" />
-            <span>Subject Credits</span>
-          </button>
-
-          {/* Semester Filter */}
-          <div className="flex items-center bg-red-50 px-2 py-1 rounded-lg border border-red-200 text-xs">
-            <span className="text-red-600 font-bold text-[11px] mr-1.5 hidden sm:inline">Semester:</span>
-            <select
-              value={semesterFilter}
-              onChange={(e) => setSemesterFilter(e.target.value)}
-              className="bg-white text-red-600 font-bold py-1 px-2.5 rounded-md border border-red-200 focus:outline-none focus:border-red-500 shadow-2xs text-xs cursor-pointer"
+          {/* Primary Controls Row: Subject Credits, Semester Filter, and Eligible Button */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap xs:flex-nowrap">
+            {/* Subject Credits Button */}
+            <button
+              onClick={() => setIsCreditsModalOpen(true)}
+              title="Configure Subject Credits for Semester"
+              className="inline-flex items-center space-x-1 sm:space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-all duration-150 cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
             >
-              <option value="">-- Select Semester --</option>
-              <option value="ALL">All Semesters</option>
-              {availableSemesters.map((sem) => (
-                <option key={sem} value={sem}>
-                  Sem {sem.replace(/^sem\s*/i, '')}
-                </option>
-              ))}
-              {/* Default common semester options if not already listed */}
-              {['1', '2', '3', '4', '5', '6', '7', '8'].map((s) => (
-                !availableSemesters.includes(s) && !availableSemesters.some((x) => x.toLowerCase().includes(s)) && (
-                  <option key={`opt-${s}`} value={s}>
-                    Sem {s}
+              <Award className="w-3.5 h-3.5 text-white" />
+              <span>Subject Credits</span>
+            </button>
+
+            {/* Semester Filter */}
+            <div className="flex items-center bg-red-50 px-1.5 sm:px-2 py-1 rounded-lg border border-red-200 text-xs shrink-0">
+              <span className="text-red-600 font-bold text-[11px] mr-1 hidden sm:inline">Semester:</span>
+              <select
+                value={semesterFilter}
+                onChange={(e) => setSemesterFilter(e.target.value)}
+                className="bg-white text-red-600 font-bold py-1 px-1.5 sm:px-2.5 rounded-md border border-red-200 focus:outline-none focus:border-red-500 shadow-2xs text-xs cursor-pointer"
+              >
+                <option value="">-- Sem --</option>
+                <option value="ALL">All Semesters</option>
+                {availableSemesters.map((sem) => (
+                  <option key={sem} value={sem}>
+                    Sem {sem.replace(/^sem\s*/i, '')}
                   </option>
-                )
-              ))}
-            </select>
+                ))}
+                {/* Default common semester options if not already listed */}
+                {['1', '2', '3', '4', '5', '6', '7', '8'].map((s) => (
+                  !availableSemesters.includes(s) && !availableSemesters.some((x) => x.toLowerCase().includes(s)) && (
+                    <option key={`opt-${s}`} value={s}>
+                      Sem {s}
+                    </option>
+                  )
+                ))}
+              </select>
+            </div>
+
+            {/* Eligible Button placed right beside Semester Filter */}
+            <button
+              onClick={onOpenEligibilityView}
+              title="Verify Credits Progression Eligibility (>23 Credits across 2 Semesters)"
+              className="inline-flex items-center space-x-1 sm:space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold shadow-xs transition-all duration-150 cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
+            >
+              <CheckCheck className="w-3.5 h-3.5 text-violet-200" />
+              <span>Eligible</span>
+            </button>
           </div>
 
-          {/* New View Button placed right beside Semester Filter */}
+          {/* New View Button */}
           {onOpenNewView && (
             <button
               onClick={onOpenNewView}
