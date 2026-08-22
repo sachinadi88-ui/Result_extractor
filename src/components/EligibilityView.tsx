@@ -421,7 +421,7 @@ export const EligibilityView: React.FC<EligibilityViewProps> = ({
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+              <p className="hidden sm:block text-[11px] text-slate-500 mt-0.5">
                 Automatically calculates cumulative credits earned across two selected semesters for student academic progression.
               </p>
             </div>
@@ -442,18 +442,18 @@ export const EligibilityView: React.FC<EligibilityViewProps> = ({
         </div>
 
         {/* Dual Semester Selectors & Criteria Banner */}
-        <div className="mt-3.5 grid grid-cols-1 md:grid-cols-12 gap-3 pt-3 border-t border-slate-100 items-center">
+        <div className="mt-3.5 grid grid-cols-2 md:grid-cols-12 gap-2 sm:gap-3 pt-3 border-t border-slate-100 items-center">
           
           {/* Semester 1 Selector */}
-          <div className="md:col-span-4 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-            <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-600 mb-1 flex items-center justify-between">
-              <span>First Semester Dropdown</span>
-              <span className="text-violet-600 font-bold text-[9px] bg-violet-50 px-1.5 py-0.2 rounded">Sem 1</span>
+          <div className="col-span-1 md:col-span-4 bg-slate-50 p-2 sm:p-2.5 rounded-xl border border-slate-200">
+            <label className="block text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-slate-600 mb-1 flex items-center justify-between">
+              <span className="truncate">First Semester</span>
+              <span className="text-violet-600 font-bold text-[9px] bg-violet-50 px-1.5 py-0.2 rounded shrink-0 ml-1">Sem 1</span>
             </label>
             <select
               value={sem1}
               onChange={(e) => setSem1(e.target.value)}
-              className="w-full bg-white border border-slate-300 hover:border-violet-500 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500 cursor-pointer shadow-2xs"
+              className="w-full bg-white border border-slate-300 hover:border-violet-500 rounded-lg px-2 sm:px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500 cursor-pointer shadow-2xs"
             >
               {availableSemesters.map((s) => (
                 <option key={`view-sem1-${s}`} value={s}>
@@ -471,15 +471,15 @@ export const EligibilityView: React.FC<EligibilityViewProps> = ({
           </div>
 
           {/* Semester 2 Selector */}
-          <div className="md:col-span-4 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-            <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-600 mb-1 flex items-center justify-between">
-              <span>Second Semester Dropdown</span>
-              <span className="text-violet-600 font-bold text-[9px] bg-violet-50 px-1.5 py-0.2 rounded">Sem 2</span>
+          <div className="col-span-1 md:col-span-4 bg-slate-50 p-2 sm:p-2.5 rounded-xl border border-slate-200">
+            <label className="block text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-slate-600 mb-1 flex items-center justify-between">
+              <span className="truncate">Second Semester</span>
+              <span className="text-violet-600 font-bold text-[9px] bg-violet-50 px-1.5 py-0.2 rounded shrink-0 ml-1">Sem 2</span>
             </label>
             <select
               value={sem2}
               onChange={(e) => setSem2(e.target.value)}
-              className="w-full bg-white border border-slate-300 hover:border-violet-500 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500 cursor-pointer shadow-2xs"
+              className="w-full bg-white border border-slate-300 hover:border-violet-500 rounded-lg px-2 sm:px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500 cursor-pointer shadow-2xs"
             >
               {availableSemesters.map((s) => (
                 <option key={`view-sem2-${s}`} value={s}>
@@ -496,8 +496,8 @@ export const EligibilityView: React.FC<EligibilityViewProps> = ({
             </select>
           </div>
 
-          {/* Evaluation Criterion Info Box */}
-          <div className="md:col-span-4 bg-violet-50/80 border border-violet-200 p-2.5 rounded-xl flex items-center justify-between">
+          {/* Evaluation Criterion Info Box (Hidden on Mobile, Visible on md+) */}
+          <div className="hidden md:flex md:col-span-4 bg-violet-50/80 border border-violet-200 p-2.5 rounded-xl items-center justify-between">
             <div>
               <span className="text-[10px] font-bold text-violet-800 uppercase block">
                 Rule Check
@@ -518,45 +518,45 @@ export const EligibilityView: React.FC<EligibilityViewProps> = ({
 
       </div>
 
-      {/* KPI Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-12 gap-2.5">
-        <div className="bg-white px-3.5 py-2.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between lg:col-span-2">
-          <span className="text-[11px] text-slate-500 font-semibold leading-tight">Total Students Evaluated</span>
+      {/* KPI Cards Row (2x2 on Mobile, 12-col layout on Desktop) */}
+      <div className="grid grid-cols-2 lg:grid-cols-12 gap-2 sm:gap-2.5">
+        <div className="bg-white px-2.5 sm:px-3.5 py-2 sm:py-2.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between col-span-1 lg:col-span-2">
+          <span className="text-[10px] sm:text-[11px] text-slate-500 font-semibold leading-tight">Total Students Evaluated</span>
           <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-xl font-extrabold text-slate-900">{totalCount}</span>
-            <span className="text-[10px] text-slate-400 font-mono font-medium">Sem {sem1} &amp; {sem2}</span>
+            <span className="text-lg sm:text-xl font-extrabold text-slate-900">{totalCount}</span>
+            <span className="text-[9px] sm:text-[10px] text-slate-400 font-mono font-medium">Sem {sem1} &amp; {sem2}</span>
           </div>
         </div>
 
-        <div className="bg-emerald-50/70 px-3.5 py-2.5 rounded-xl border border-emerald-200 shadow-2xs flex flex-col justify-between lg:col-span-3">
-          <span className="text-[11px] text-emerald-800 font-semibold leading-tight flex items-center gap-1">
+        <div className="bg-emerald-50/70 px-2.5 sm:px-3.5 py-2 sm:py-2.5 rounded-xl border border-emerald-200 shadow-2xs flex flex-col justify-between col-span-1 lg:col-span-3">
+          <span className="text-[10px] sm:text-[11px] text-emerald-800 font-semibold leading-tight flex items-center gap-1">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             <span>Eligible Students (&gt; 23 Cr)</span>
           </span>
           <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-xl font-extrabold text-emerald-700">{eligibleCount}</span>
-            <span className="text-[11px] font-bold text-emerald-600 font-mono">{eligiblePercentage}%</span>
+            <span className="text-lg sm:text-xl font-extrabold text-emerald-700">{eligibleCount}</span>
+            <span className="text-[10px] sm:text-[11px] font-bold text-emerald-600 font-mono">{eligiblePercentage}%</span>
           </div>
         </div>
 
-        <div className="bg-rose-50/70 px-3.5 py-2.5 rounded-xl border border-rose-200 shadow-2xs flex flex-col justify-between lg:col-span-3">
-          <span className="text-[11px] text-rose-800 font-semibold leading-tight flex items-center gap-1">
+        <div className="bg-rose-50/70 px-2.5 sm:px-3.5 py-2 sm:py-2.5 rounded-xl border border-rose-200 shadow-2xs flex flex-col justify-between col-span-1 lg:col-span-3">
+          <span className="text-[10px] sm:text-[11px] text-rose-800 font-semibold leading-tight flex items-center gap-1">
             <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
             <span>Not Eligible Students (&le; 23 Cr)</span>
           </span>
           <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-xl font-extrabold text-rose-700">{notEligibleCount}</span>
-            <span className="text-[11px] font-bold text-rose-600 font-mono">
+            <span className="text-lg sm:text-xl font-extrabold text-rose-700">{notEligibleCount}</span>
+            <span className="text-[10px] sm:text-[11px] font-bold text-rose-600 font-mono">
               {totalCount > 0 ? (Math.round((notEligibleCount / totalCount) * 1000) / 10) : 0}%
             </span>
           </div>
         </div>
 
-        <div className="bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between lg:col-span-4">
-          <span className="text-[11px] text-slate-500 font-semibold leading-tight">Vertical Progression Cutoff</span>
-          <div className="flex items-center justify-between mt-1">
-            <span className="text-xs sm:text-sm font-bold text-slate-800 whitespace-nowrap">&ge; 24 Credits Earned</span>
-            <span className="px-2 py-0.5 bg-violet-100 text-violet-800 text-[10px] font-bold rounded">VTU Norm</span>
+        <div className="bg-white px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between col-span-1 lg:col-span-4">
+          <span className="text-[10px] sm:text-[11px] text-slate-500 font-semibold leading-tight">Vertical Progression Cutoff</span>
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between mt-1 gap-1">
+            <span className="text-[11px] sm:text-xs md:text-sm font-bold text-slate-800 whitespace-nowrap">&ge; 24 Credits Earned</span>
+            <span className="px-1.5 sm:px-2 py-0.5 bg-violet-100 text-violet-800 text-[9px] sm:text-[10px] font-bold rounded">VTU Norm</span>
           </div>
         </div>
       </div>
