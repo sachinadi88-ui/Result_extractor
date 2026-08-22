@@ -376,9 +376,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             <button
               onClick={onOpenEligibilityView}
               title="Verify Credits Progression Eligibility (>23 Credits across 2 Semesters)"
-              className="inline-flex items-center space-x-1 sm:space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold shadow-xs transition-all duration-150 cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
+              className="inline-flex items-center space-x-1 sm:space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold shadow-xs transition-all duration-150 cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
             >
-              <CheckCheck className="w-3.5 h-3.5 text-violet-200" />
+              <CheckCheck className="w-3.5 h-3.5 text-orange-100" />
               <span>Eligible</span>
             </button>
           </div>
